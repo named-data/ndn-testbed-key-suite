@@ -10,12 +10,15 @@ static void
 usage(const char *progname)
 {
   fprintf(stderr,
-      "%s [-h] [-c configure_file] [-i identity] [-a affiliation] [-f key_file] [-k key_uri] [-x freshness_seconds] ccnx:/some/uri\n"
+      "%s [-h] [-c configure_file] [-i identity] [-a affiliation] [-f key_file] [-k key_uri] [-x freshness_days] ccnx:/some/uri\n"
       "    Reads key, storing it to local repo with the given URI.\n"
       "    -h print this help message.\n"
+      "    -c specify the configuration file.\n"
       "    -i specify the real-world identity of the key owner.\n"
       "    -a specify the affiliation of the key owner.\n"
-      "    -f specify the key file.\n",
+      "    -f specify the key file.\n"
+      "    -k specify the signing key uri.\n"
+      "    -x specify the freshness in days.\n",
       progname);
   exit(1);
 }
@@ -29,9 +32,12 @@ int main(int argc, char **argv)
   char *identity = NULL;
   char *affiliation = NULL;
   char *keyfile = NULL;
+  char *keyuri = NULL;
+  char *config = NULL;
+  int freshness = 0;
   struct ccn_charbuf *name;
   
-  while ((res = getopt(argc, argv, "h:i:a:f:")) != -1)
+  while ((res = getopt(argc, argv, "hafkxc:i:")) != -1)
     switch (res)
     {
       case 'i':
@@ -42,6 +48,15 @@ int main(int argc, char **argv)
 	break;
       case 'f':
 	keyfile = strdup(optarg);
+	break;
+      case 'k':
+	keyuri = strdup(optarg);
+	break;
+      case 'c':
+	config = strdup(optarg);
+	break;
+      case 'x':
+	freshness = atoi(optarg);
 	break;
       case 'h':
       default:
