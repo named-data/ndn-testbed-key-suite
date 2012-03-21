@@ -79,6 +79,28 @@ sha256(char *input, char *output)
 }
 
 static void
+trim(char **pstring)
+{
+  char *string = *pstring;
+  char *trimmed;
+  int i = 0, j = strlen(string);
+
+  for (; i < j; i++)
+    if (!isspace(string[i]))
+      break;
+
+  j--;
+  for (; j >= i; j--)
+    if (!isspace(string[j]))
+      break;
+
+  trimmed = calloc(1, sizeof(char) * (j - i + 2));
+  strncpy(trimmed, &string[i], j - i + 1);
+  free(string);
+  *pstring = trimmed;
+}
+
+static void
 extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, int *fresh)
 {
   xmlNodePtr cur = xmlDocGetRootElement(doc);
@@ -101,17 +123,26 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
     if (!xmlStrcmp(cur->name, (const xmlChar *) "affiliation"))
     {
       if (*affl == NULL)
+      {
 	*affl = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+	trim(affl);
+      }
     }
     if (!xmlStrcmp(cur->name, (const xmlChar *) "prefix"))
     {
       if (*prefix == NULL)
+      {
 	*prefix = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+	trim(prefix);
+      }
     }
     if (!xmlStrcmp(cur->name, (const xmlChar *) "signing_key"))
     {
       if (*signkey == NULL)
+      {
 	*signkey = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+	trim(signkey);
+      }
     }
     if (!xmlStrcmp(cur->name, (const xmlChar *) "validity_period"))
     {
