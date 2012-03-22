@@ -10,6 +10,7 @@
 #include <openssl/evp.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
+#include <openssl/sha.h>
 
 static void
 usage(const char *progname)
@@ -71,7 +72,7 @@ unbase64(const char *input, char *output)
 }
 
 static void
-hash(char *digest_name, char *input, char *output, int *len)
+hash(const char *digest_name, char *input, char *output, int *len)
 {
   EVP_MD_CTX mdctx;
   const EVP_MD *md;
@@ -290,17 +291,34 @@ main(int argc, char **argv)
 
   OpenSSL_add_all_digests();
 
-  char *keydata;
+  char *keydata, *keyhash, *encodedhash;
   int len;
   fseek(fp1, 0, SEEK_END);
   len = ftell(fp1);
   rewind(fp1);
-  keydata = malloc(sizeof(char) * len);
+  keydata = calloc(1, sizeof(char) * (len + 1));
   fread(keydata, 1, len, fp1);
+  fclose(fp1);
 
-  char *signkey;
-  
+  keyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
+  hash("SHA1", keydata, keyhash, &len);
+  base64(keyhash, encodedhash);
+  free(keyhash);
 
+  ccn_charbuf *keyname = ccn_charbuf_create();
+  char *pname = calloc(1, sizeof(char) * 100);
+  strcpy(pname, prefix);
+  strcat(pname, "/");
+  strcat(pname, encodedhash);
+  ccn_name_from_uri(keyname, pname);
+
+  char *prvkey;
+  fseek(fp2, 0, SEEK_END);
+  len = ftell(fp2);
+  rewind(fp2);
+  prvkey = calloc(1, sizeof(char) * (len + 1));
+  fread(prvkey, 1, len, fp2);
+  fclose(fp2);
 
   return 0;
 }
