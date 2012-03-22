@@ -7,7 +7,7 @@
 #include <ccn/uri.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 
@@ -15,8 +15,8 @@ static void
 usage(const char *progname)
 {
   fprintf(stderr,
-      "%s [-h] [-c configure_file] [-i identity] [-a affiliation] [-f key_file] 
-          [-k signing_key] [-u pubkey_uri] [-p key_prefix] [-x validity_period]\n"
+      "%s [-h] [-c configure_file] [-i identity] [-a affiliation] [-f key_file]\n"
+      "    [-k signing_key] [-u pubkey_uri] [-p key_prefix] [-x validity_period]\n"
       "    Reads key, storing it to local repo.\n"
       "    -h print this help message.\n"
       "    -c specify the configuration file.\n"
@@ -62,7 +62,7 @@ unbase64(const char *input, char *output)
   memset(output, 0, len);
 
   b64 = BIO_new(BIO_f_base64());
-  bmem = BIO_new_mem_buf(input, len);
+  bmem = BIO_new_mem_buf((void *)input, len);
   bmem = BIO_push(b64, bmem);
   
   BIO_read(bmem, output, len);
@@ -79,7 +79,7 @@ hash(char *digest_name, char *input, char *output, int *len)
   md = EVP_get_digestbyname(digest_name);
   if (!md)
   {
-    fprintf("Unknown digest name %s\n", digest_name);
+    fprintf(stderr, "Unknown digest name %s\n", digest_name);
     exit(1);
   }
 
@@ -158,7 +158,7 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
       }
       continue;
     }
-    if (!xmlStrcmp(cur->name, (const xmlChat *) "pubkey_uri"))
+    if (!xmlStrcmp(cur->name, (const xmlChar *) "pubkey_uri"))
     {
       if (*keyuri == NULL)
       {
@@ -288,7 +288,19 @@ main(int argc, char **argv)
     exit(1);
   }
 
-  OpenSSL_add_all_digests(); 
+  OpenSSL_add_all_digests();
+
+  char *keydata;
+  int len;
+  fseek(fp1, 0, SEEK_END);
+  len = ftell(fp1);
+  rewind(fp1);
+  keydata = malloc(sizeof(char) * len);
+  fread(keydata, 1, len, fp1);
+
+  char *signkey;
+  
+
 
   return 0;
 }
