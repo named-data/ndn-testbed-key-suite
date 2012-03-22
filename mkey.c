@@ -15,16 +15,18 @@ static void
 usage(const char *progname)
 {
   fprintf(stderr,
-      "%s [-h] [-c configure_file] [-i identity] [-a affiliation] [-f key_file] [-k signing_key] [-p key_prefix] [-x freshness_days]\n"
-      "    Reads key, storing it to local repo with the given URI.\n"
+      "%s [-h] [-c configure_file] [-i identity] [-a affiliation] [-f key_file] 
+          [-k signing_key] [-u pubkey_uri] [-p key_prefix] [-x validity_period]\n"
+      "    Reads key, storing it to local repo.\n"
       "    -h print this help message.\n"
       "    -c specify the configuration file.\n"
       "    -i specify the real-world identity of the key owner.\n"
       "    -a specify the affiliation of the key owner.\n"
       "    -f specify the public key file.\n"
-      "    -k specify the signing key file.\n"
+      "    -k specify the file containing signing private key.\n"
+      "    -u specify the URI of signing public key.\n"
       "    -p specify the key name prefix.\n"
-      "    -x specify the freshness in days.\n",
+      "    -x specify the validity period in days.\n",
       progname);
   exit(1);
 }
@@ -69,13 +71,23 @@ unbase64(const char *input, char *output)
 }
 
 static void
-sha256(char *input, char *output)
+hash(char *digest_name, char *input, char *output, int *len)
 {
-  SHA256_CTX sha;
+  EVP_MD_CTX mdctx;
+  const EVP_MD *md;
 
-  SHA256_Init(&sha);
-  SHA256_Update(&sha, input, strlen(input));
-  SHA256_Final(output, &sha);
+  md = EVP_get_digestbyname(digest_name);
+  if (!md)
+  {
+    fprintf("Unknown digest name %s\n", digest_name);
+    exit(1);
+  }
+
+  EVP_MD_CTX_init(&mdctx);
+  EVP_DigestInit_ex(&mdctx, md, NULL);
+  EVP_DigestUpdate(&mdctx, input, strlen(input));
+  EVP_DigestFinal_ex(&mdctx, output, len);
+  EVP_MD_CTX_cleanup(&mdctx);
 }
 
 static void
@@ -101,7 +113,7 @@ trim(char **pstring)
 }
 
 static void
-extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, int *fresh)
+extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, char **keyuri, int *fresh)
 {
   xmlNodePtr cur = xmlDocGetRootElement(doc);
 
@@ -117,8 +129,7 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
     exit(1);
   }
 
-  cur = cur->xmlChildrenNode;
-  while (cur != NULL)
+  for (cur = cur->xmlChildrenNode; cur != NULL; cur = cur->next)
   {
     if (!xmlStrcmp(cur->name, (const xmlChar *) "affiliation"))
     {
@@ -127,6 +138,7 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
 	*affl = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
 	trim(affl);
       }
+      continue;
     }
     if (!xmlStrcmp(cur->name, (const xmlChar *) "prefix"))
     {
@@ -135,6 +147,7 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
 	*prefix = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
 	trim(prefix);
       }
+      continue;
     }
     if (!xmlStrcmp(cur->name, (const xmlChar *) "signing_key"))
     {
@@ -143,6 +156,16 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
 	*signkey = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
 	trim(signkey);
       }
+      continue;
+    }
+    if (!xmlStrcmp(cur->name, (const xmlChat *) "pubkey_uri"))
+    {
+      if (*keyuri == NULL)
+      {
+	*keyuri = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+	trim(signkey);
+      }
+      continue;
     }
     if (!xmlStrcmp(cur->name, (const xmlChar *) "validity_period"))
     {
@@ -153,7 +176,6 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
 	xmlFree(tmp);
       }
     }
-    cur = cur->next;
   }
 }
 
@@ -169,6 +191,7 @@ main(int argc, char **argv)
   char *signkey = NULL;
   char *config = NULL;
   char *prefix = NULL;
+  char *keyuri = NULL;
   int freshness = 0;
   struct ccn_charbuf *name;
   xmlDocPtr doc = NULL;
@@ -195,6 +218,9 @@ main(int argc, char **argv)
       case 'p':
 	prefix = strdup(optarg);
 	break;
+      case 'u':
+	keyuri = strdup(optarg);
+	break;
       case 'x':
 	freshness = atoi(optarg);
 	break;
@@ -220,7 +246,7 @@ main(int argc, char **argv)
       exit(1);
     }
     else
-      extract_config(doc, &affiliation, &prefix, &signkey, &freshness);
+      extract_config(doc, &affiliation, &prefix, &signkey, &keyuri, &freshness);
   }
 
   if (affiliation == NULL)
@@ -236,6 +262,11 @@ main(int argc, char **argv)
   if (signkey == NULL)
   {
     fprintf(stderr, "No signing key provided.\n");
+    exit(1);
+  }
+  if (keyuri == NULL)
+  {
+    fprintf(stderr, "No key uri provided.\n");
     exit(1);
   }
   if (freshness == 0)
@@ -257,7 +288,7 @@ main(int argc, char **argv)
     exit(1);
   }
 
-  
+  OpenSSL_add_all_digests(); 
 
   return 0;
 }
