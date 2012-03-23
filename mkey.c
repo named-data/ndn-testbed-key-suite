@@ -3,7 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <ccn/ccn.h>
+#include <ccn/charbuf.h>
 #include <ccn/signing.h>
+#include <ccn/keystore.h>
 #include <ccn/uri.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -329,6 +331,40 @@ main(int argc, char **argv)
   ccn_charbuf_append_closer(sp.template_ccnb);
   sp.sp_flags |= CCN_SP_TEMPL_KEY_LOCATOR;
   ccn_charbuf_destroy(&c);
+
+  struct ccn_charbuf *default_pubid = ccn_charbuf_create();
+  struct ccn_charbuf *temp = ccn_charbuf_create();
+  ccn_charbuf_putf(temp, "%s/.ccnx_keystore", signkey);
+  ccn_load_private_key(ccn, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.", default_pubid);
+
+  struct ccn_charbuf *content = ccn_charbuf_create();
+  ccn_sign_content(ccn, content, keyname, &sp, keydata, strlen(keydata));
+
+  struct ccn_charbuf *name_v = ccn_charbuf_create();
+  struct ccn_charbuf *templ = ccn_charbuf_create();
+  ccn_charbuf_append_charbuf(name_v, keyname);
+  ccn_name_from_uri(name_v, "%C1.R.sw");
+  ccn_name_append_nonce(name_v);
+  ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG);
+  ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG);
+  ccn_charbuf_append_closer(templ);
+  ccnb_tagged_putf(templ, CCN_DTAG_Scope, "%d", 1);
+  ccn_charbuf_append_closer(templ);
+  res = ccn_get(ccn, name_v, templ, 60000, NULL, NULL, NULL, 0);
+  ccn_charbuf_destroy(&templ);
+  ccn_charbuf_destroy(&name_v);
+  if (res < 0)
+  {
+    fprintf(stderr, "No response from repository\n");
+    exit(1);
+  }
+
+  ccn_put(ccn, content->buf, content->length);
+
+  ccn_charbuf_destroy(&content);
+  ccn_charbuf_destroy(&keyname);
+  ccn_charbuf_destroy(&sp.template_ccnb);
+  ccn_destroy(&ccn);
 
   return 0;
 }
