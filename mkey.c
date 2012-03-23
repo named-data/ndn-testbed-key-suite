@@ -24,7 +24,7 @@ usage(const char *progname)
       "    -i specify the real-world identity of the key owner.\n"
       "    -a specify the affiliation of the key owner.\n"
       "    -f specify the public key file.\n"
-      "    -k specify the file containing signing private key.\n"
+      "    -k specify the path of keystore.\n"
       "    -u specify the URI of signing public key.\n"
       "    -p specify the key name prefix.\n"
       "    -x specify the validity period in days.\n",
@@ -194,9 +194,7 @@ main(int argc, char **argv)
   char *prefix = NULL;
   char *keyuri = NULL;
   int freshness = 0;
-  struct ccn_charbuf *name;
   xmlDocPtr doc = NULL;
-  FILE *fp1, *fp2;
   
   while ((res = getopt(argc, argv, "hakxc:i:f:")) != -1)
     switch (res)
@@ -262,7 +260,7 @@ main(int argc, char **argv)
   }
   if (signkey == NULL)
   {
-    fprintf(stderr, "No signing key provided.\n");
+    fprintf(stderr, "No keystore provided.\n");
     exit(1);
   }
   if (keyuri == NULL)
@@ -276,16 +274,10 @@ main(int argc, char **argv)
     exit(1);
   }
 
-  fp1 = fopen(keyfile, "r");
-  if (fp1 == NULL)
+  FILE *fp = fopen(keyfile, "r");
+  if (fp == NULL)
   {
     fprintf(stderr, "Cannot open key file.\n");
-    exit(1);
-  }
-  fp2 = fopen(signkey, "r");
-  if (fp2 == NULL)
-  {
-    fprintf(stderr, "Cannot open signing key file.\n");
     exit(1);
   }
 
@@ -293,32 +285,50 @@ main(int argc, char **argv)
 
   char *keydata, *keyhash, *encodedhash;
   int len;
-  fseek(fp1, 0, SEEK_END);
-  len = ftell(fp1);
-  rewind(fp1);
+  fseek(fp, 0, SEEK_END);
+  len = ftell(fp);
+  rewind(fp);
   keydata = calloc(1, sizeof(char) * (len + 1));
-  fread(keydata, 1, len, fp1);
-  fclose(fp1);
+  fread(keydata, 1, len, fp);
+  fclose(fp);
 
   keyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
   hash("SHA1", keydata, keyhash, &len);
   base64(keyhash, encodedhash);
   free(keyhash);
 
-  ccn_charbuf *keyname = ccn_charbuf_create();
+  struct ccn_charbuf *keyname = ccn_charbuf_create();
   char *pname = calloc(1, sizeof(char) * 100);
   strcpy(pname, prefix);
   strcat(pname, "/");
   strcat(pname, encodedhash);
   ccn_name_from_uri(keyname, pname);
 
-  char *prvkey;
-  fseek(fp2, 0, SEEK_END);
-  len = ftell(fp2);
-  rewind(fp2);
-  prvkey = calloc(1, sizeof(char) * (len + 1));
-  fread(prvkey, 1, len, fp2);
-  fclose(fp2);
+  ccn = ccn_create();
+  if (ccn_connect(ccn, NULL) == -1)
+  {
+    fprintf(stderr, "Could not connect to ccnd\n");
+    exit(1);
+  }
+
+  struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
+  sp.type = CCN_CONTENT_KEY;
+  sp.template_ccnb = ccn_charbuf_create();
+  ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_SignedInfo, CCN_DTAG);
+  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%ld", freshness * 3600 * 24);
+  sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
+  ccn_charbuf_append_closer(sp.template_ccnb);
+
+  struct ccn_charbuf *c = ccn_charbuf_create();
+  ccn_name_from_uri(c, keyuri);
+  sp.template_ccnb->length--;
+  ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyLocator, CCN_DTAG);
+  ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyName, CCN_DTAG);
+  ccn_charbuf_append(sp.template_ccnb, c->buf, c->length);
+  ccn_charbuf_append_closer(sp.template_ccnb);
+  ccn_charbuf_append_closer(sp.template_ccnb);
+  sp.sp_flags |= CCN_SP_TEMPL_KEY_LOCATOR;
+  ccn_charbuf_destroy(&c);
 
   return 0;
 }
