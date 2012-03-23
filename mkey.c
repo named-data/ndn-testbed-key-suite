@@ -35,11 +35,10 @@ usage(const char *progname)
 }
 
 static void
-base64(const char *input, char *output)
+base64(const char *input, char **output)
 {
   BIO *bmem, *b64;
   BUF_MEM *bptr;
-  char *buf;
 
   b64 = BIO_new(BIO_f_base64());
   bmem = BIO_new(BIO_s_mem());
@@ -48,27 +47,29 @@ base64(const char *input, char *output)
   BIO_flush(b64);
   BIO_get_mem_ptr(b64, &bptr);
 
-  output = (char *)malloc(bptr->length);
-  memcpy(output, bptr->data, bptr->length - 1);
-  output[bptr->length - 1] = '\0';
+  char *buf = (char *)malloc(bptr->length);
+  memcpy(buf, bptr->data, bptr->length - 1);
+  buf[bptr->length - 1] = '\0';
+  *output = buf;
 
   BIO_free_all(b64);
 }
 
 static void
-unbase64(const char *input, char *output)
+unbase64(const char *input, char **output)
 {
   BIO *b64, *bmem;
   int len = strlen(input);
 
-  output = (char *)malloc(len);
-  memset(output, 0, len);
+  char *buf = (char *)malloc(len);
+  memset(buf, 0, len);
 
   b64 = BIO_new(BIO_f_base64());
   bmem = BIO_new_mem_buf((void *)input, len);
   bmem = BIO_push(b64, bmem);
   
-  BIO_read(bmem, output, len);
+  BIO_read(bmem, buf, len);
+  *output = buf;
 
   BIO_free_all(bmem);
 }
@@ -270,6 +271,11 @@ main(int argc, char **argv)
     fprintf(stderr, "No key uri provided.\n");
     exit(1);
   }
+  if (keyfile == NULL)
+  {
+    fprintf(stderr, "No public keyfile provided.\n");
+    exit(1);
+  }
   if (freshness == 0)
   {
     fprintf(stderr, "No validity period provided.\n");
@@ -296,7 +302,7 @@ main(int argc, char **argv)
 
   keyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
   hash("SHA1", keydata, keyhash, &len);
-  base64(keyhash, encodedhash);
+  base64(keyhash, &encodedhash);
   free(keyhash);
 
   struct ccn_charbuf *keyname = ccn_charbuf_create();
@@ -335,10 +341,24 @@ main(int argc, char **argv)
   struct ccn_charbuf *default_pubid = ccn_charbuf_create();
   struct ccn_charbuf *temp = ccn_charbuf_create();
   ccn_charbuf_putf(temp, "%s/.ccnx_keystore", signkey);
-  ccn_load_private_key(ccn, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.", default_pubid);
+  ccn_load_private_key(ccn, ccn_charbuf_as_string(temp), 
+      "Th1s1sn0t8g00dp8ssw0rd.", default_pubid);
 
   struct ccn_charbuf *content = ccn_charbuf_create();
   ccn_sign_content(ccn, content, keyname, &sp, keydata, strlen(keydata));
+
+  char *info = calloc(1, sizeof(char) * 100);
+  strcpy(info, "<Meta><Name>");
+  strcat(info, identity);
+  strcat(info, "</Name><Affiliation>");
+  strcat(info, affiliation);
+  strcat(info, "</Affiliation></Meta>");
+  struct ccn_charbuf *infoname = ccn_charbuf_create();
+  ccn_charbuf_append_charbuf(infoname, keyname);
+  ccn_name_from_uri(infoname, "info");
+  sp.type = CCN_CONTENT_DATA;
+  struct ccn_charbuf *meta = ccn_charbuf_create();
+  ccn_sign_content(ccn, meta, infoname, &sp, info, strlen(info));
 
   struct ccn_charbuf *name_v = ccn_charbuf_create();
   struct ccn_charbuf *templ = ccn_charbuf_create();
@@ -361,7 +381,30 @@ main(int argc, char **argv)
 
   ccn_put(ccn, content->buf, content->length);
 
+  name_v = ccn_charbuf_create();
+  templ = ccn_charbuf_create();
+  ccn_charbuf_append_charbuf(name_v, infoname);
+  ccn_name_from_uri(name_v, "%C1.R.sw");
+  ccn_name_append_nonce(name_v);
+  ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG);
+  ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG);
+  ccn_charbuf_append_closer(templ);
+  ccnb_tagged_putf(templ, CCN_DTAG_Scope, "%d", 1);
+  ccn_charbuf_append_closer(templ);
+  res = ccn_get(ccn, name_v, templ, 60000, NULL, NULL, NULL, 0);
+  ccn_charbuf_destroy(&templ);
+  ccn_charbuf_destroy(&name_v);
+  if (res < 0)
+  {
+    fprintf(stderr, "No response form repository\n");
+    exit(1);
+  }
+
+  ccn_put(ccn, meta->buf, meta->length);
+  
   ccn_charbuf_destroy(&content);
+  ccn_charbuf_destroy(&meta);
+  ccn_charbuf_destroy(&infoname);
   ccn_charbuf_destroy(&keyname);
   ccn_charbuf_destroy(&sp.template_ccnb);
   ccn_destroy(&ccn);
