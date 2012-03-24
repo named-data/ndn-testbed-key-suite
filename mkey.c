@@ -341,8 +341,14 @@ main(int argc, char **argv)
   struct ccn_charbuf *default_pubid = ccn_charbuf_create();
   struct ccn_charbuf *temp = ccn_charbuf_create();
   ccn_charbuf_putf(temp, "%s/.ccnx_keystore", signkey);
-  ccn_load_private_key(ccn, ccn_charbuf_as_string(temp), 
+  res = ccn_load_private_key(ccn, ccn_charbuf_as_string(temp), 
       "Th1s1sn0t8g00dp8ssw0rd.", default_pubid);
+  if (res != 0)
+  {
+    fprintf("Invalid keystore\n");
+    exit(1);
+  }
+  memcpy(sp.pubid, default_pubid->buf, default_pubid->length);
 
   struct ccn_charbuf *content = ccn_charbuf_create();
   ccn_sign_content(ccn, content, keyname, &sp, keydata, strlen(keydata));
