@@ -303,6 +303,12 @@ main(int argc, char **argv)
   keyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
   hash("SHA1", keydata, keyhash, &len);
   base64(keyhash, &encodedhash);
+  char *pos = strchr(encodedhash, '/');
+  while (pos != NULL)
+  {
+    *pos = '-';
+    pos = strchr(pos, '/');
+  }
   free(keyhash);
 
   struct ccn_charbuf *keyname = ccn_charbuf_create();
@@ -341,11 +347,10 @@ main(int argc, char **argv)
   struct ccn_charbuf *default_pubid = ccn_charbuf_create();
   struct ccn_charbuf *temp = ccn_charbuf_create();
   ccn_charbuf_putf(temp, "%s/.ccnx_keystore", signkey);
-  res = ccn_load_private_key(ccn, ccn_charbuf_as_string(temp), 
-      "Th1s1sn0t8g00dp8ssw0rd.", default_pubid);
+  res = ccn_load_private_key(ccn, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.", default_pubid);
   if (res != 0)
   {
-    fprintf("Invalid keystore\n");
+    fprintf(stderr, "Invalid keystore.\n");
     exit(1);
   }
   memcpy(sp.pubid, default_pubid->buf, default_pubid->length);
