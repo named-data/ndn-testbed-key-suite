@@ -329,19 +329,18 @@ main(int argc, char **argv)
   sp.type = CCN_CONTENT_KEY;
   sp.template_ccnb = ccn_charbuf_create();
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_SignedInfo, CCN_DTAG);
-  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%ld", freshness * 3600 * 24);
-  sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
-  ccn_charbuf_append_closer(sp.template_ccnb);
+  //ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%ld", freshness * 24 * 3600);
+  //sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
 
   struct ccn_charbuf *c = ccn_charbuf_create();
   ccn_name_from_uri(c, keyuri);
-  sp.template_ccnb->length--;
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyLocator, CCN_DTAG);
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyName, CCN_DTAG);
   ccn_charbuf_append(sp.template_ccnb, c->buf, c->length);
-  ccn_charbuf_append_closer(sp.template_ccnb);
-  ccn_charbuf_append_closer(sp.template_ccnb);
+  ccn_charbuf_append_closer(sp.template_ccnb); // KeyName
+  ccn_charbuf_append_closer(sp.template_ccnb); // KeyLocator
   sp.sp_flags |= CCN_SP_TEMPL_KEY_LOCATOR;
+  ccn_charbuf_append_closer(sp.template_ccnb);
   ccn_charbuf_destroy(&c);
 
   struct ccn_charbuf *default_pubid = ccn_charbuf_create();
@@ -356,7 +355,13 @@ main(int argc, char **argv)
   memcpy(sp.pubid, default_pubid->buf, default_pubid->length);
 
   struct ccn_charbuf *content = ccn_charbuf_create();
-  ccn_sign_content(ccn, content, keyname, &sp, keydata, strlen(keydata));
+  //sp.sp_flags |= CCN_SP_FINAL_BLOCK;
+  res = ccn_sign_content(ccn, content, keyname, &sp, keydata, strlen(keydata));
+  if (res != 0)
+  {
+    fprintf(stderr, "Failed to encode ContentObject (res == %d)\n", res);
+    exit(1);
+  }
 
   char *info = calloc(1, sizeof(char) * 100);
   strcpy(info, "<Meta><Name>");
@@ -381,7 +386,8 @@ main(int argc, char **argv)
   ccn_charbuf_append_closer(templ);
   ccnb_tagged_putf(templ, CCN_DTAG_Scope, "%d", 1);
   ccn_charbuf_append_closer(templ);
-  res = ccn_get(ccn, name_v, templ, 60000, NULL, NULL, NULL, 0);
+  res = ccn_get(ccn, name_v, templ, 6000, NULL, NULL, NULL, 0);
+  ccn_run(ccn, 10); 
   ccn_charbuf_destroy(&templ);
   ccn_charbuf_destroy(&name_v);
   if (res < 0)
@@ -390,7 +396,12 @@ main(int argc, char **argv)
     exit(1);
   }
 
-  ccn_put(ccn, content->buf, content->length);
+  res = ccn_put(ccn, content->buf, content->length);
+  if (res < 0)
+  {
+    fprintf(stderr, "ccn_put faild (res == %d)\n", res);
+    exit(1);
+  }
 
   name_v = ccn_charbuf_create();
   templ = ccn_charbuf_create();
@@ -402,7 +413,7 @@ main(int argc, char **argv)
   ccn_charbuf_append_closer(templ);
   ccnb_tagged_putf(templ, CCN_DTAG_Scope, "%d", 1);
   ccn_charbuf_append_closer(templ);
-  res = ccn_get(ccn, name_v, templ, 60000, NULL, NULL, NULL, 0);
+  res = ccn_get(ccn, name_v, templ, 6000, NULL, NULL, NULL, 0);
   ccn_charbuf_destroy(&templ);
   ccn_charbuf_destroy(&name_v);
   if (res < 0)
