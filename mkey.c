@@ -329,7 +329,7 @@ main(int argc, char **argv)
   sp.type = CCN_CONTENT_KEY;
   sp.template_ccnb = ccn_charbuf_create();
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_SignedInfo, CCN_DTAG);
-  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%ld", 1000);
+  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%ld", 100);
   sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
 
   /*
