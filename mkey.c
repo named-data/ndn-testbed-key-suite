@@ -197,13 +197,13 @@ create_slice(struct ccn *h, char *topo, char *prefix)
   struct ccn_charbuf *p = ccn_charbuf_create();
   res |= ccn_name_from_uri(p, prefix);
 
-  if (res != 0)
+  if (res < 0)
   {
-    fprintf(stderr, "topo or prefix is invalid");
+    fprintf(stderr, "Invalid topo or/and prefix\n");
     exit(1);
   }
   
-  res |= ccns_slice_set_topo_prefix(sync, t, p);
+  res = ccns_slice_set_topo_prefix(sync, t, p);
 
   struct ccn_charbuf *name = ccn_charbuf_create();
   ccns_slice_name(name, sync);
@@ -214,7 +214,7 @@ create_slice(struct ccn *h, char *topo, char *prefix)
     res |= ccns_write_slice(h, sync, name);
     if (res != 0)
     {
-      fprintf(stderr, "Create slice failed.");
+      fprintf(stderr, "Create slice failed.\n");
       exit(1);
     }
   }
@@ -224,8 +224,6 @@ create_slice(struct ccn *h, char *topo, char *prefix)
   ccn_charbuf_destroy(&name);
   ccns_slice_destroy(&tmp);
   ccns_slice_destroy(&sync);
-  free(topo);
-  free(prefix);
 }
 
 int
@@ -431,8 +429,9 @@ main(int argc, char **argv)
   strcat(info, affiliation);
   strcat(info, "</Affiliation></Meta>");
   struct ccn_charbuf *infoname = ccn_charbuf_create();
-  ccn_charbuf_append_charbuf(infoname, keyname);
+  ccn_name_from_uri(infoname, prefix);
   ccn_name_from_uri(infoname, "info");
+	ccn_name_from_uri(infoname, encodedhash);
 
   struct ccn_charbuf *content = ccn_charbuf_create();
   ccn_name_append_numeric(keyname, CCN_MARKER_SEQNUM, 0);
