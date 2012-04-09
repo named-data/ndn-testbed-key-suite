@@ -3,17 +3,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <ccn/ccn.h>
-#include <ccn/charbuf.h>
-#include <ccn/signing.h>
-#include <ccn/keystore.h>
-#include <ccn/uri.h>
 #include <ccn/sync.h>
 #include <libxml/parser.h>
-#include <libxml/tree.h>
 #include <openssl/evp.h>
-#include <openssl/bio.h>
-#include <openssl/buffer.h>
-#include <openssl/sha.h>
+#include <openssl/pem.h>
 
 #define SYNC_PREFIX "/ndn/keys"
 

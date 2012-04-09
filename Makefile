@@ -8,8 +8,11 @@ mkey: mkey.c
 sync: sync.c
 	gcc sync.c -lccn -lcrypto -o sync
 
+newsync: newsync.c
+	gcc newsync.c -lccn -lcrypto -o newsync
+
 pem: pem.c
 	gcc pem.c -lcrypto -o pem
 
 clean:
-	rm -rf mkey sync pem
+	rm -rf mkey sync newsync pem
