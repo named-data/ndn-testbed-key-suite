@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-all: mkey sync pem
+all: mkey sync newsync pem
 
 mkey: mkey.c
 	gcc mkey.c `xml2-config --cflags` `xml2-config --libs` -lccn -lcrypto -o mkey
