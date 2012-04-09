@@ -126,7 +126,7 @@ static void
 usage(const char *progname)
 {
   fprintf(stderr,
-      "%s [-h] [-p prefix]"
+      "%s [-h] [-t topo] [-p prefix]"
       " Create the slice for sychronization of keys.\n"
       " -h - print this message and exit\n"
       " -t topo - set the topo prefix, default /ndn/keys\n"

@@ -7,12 +7,15 @@
 #include <ccn/signing.h>
 #include <ccn/keystore.h>
 #include <ccn/uri.h>
+#include <ccn/sync.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/sha.h>
+
+#define SYNC_PREFIX "/ndn/keys"
 
 static void
 usage(const char *progname)
@@ -183,12 +186,54 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
   }
 }
 
+static void
+create_slice(struct ccn *h, char *topo, char *prefix)
+{
+  int res = 0;
+  struct ccns_slice *sync = ccns_slice_create();
+
+  struct ccn_charbuf *t = ccn_charbuf_create();
+  res |= ccn_name_from_uri(t, topo);
+  struct ccn_charbuf *p = ccn_charbuf_create();
+  res |= ccn_name_from_uri(p, prefix);
+
+  if (res != 0)
+  {
+    fprintf(stderr, "topo or prefix is invalid");
+    exit(1);
+  }
+  
+  res |= ccns_slice_set_topo_prefix(sync, t, p);
+
+  struct ccn_charbuf *name = ccn_charbuf_create();
+  ccns_slice_name(name, sync);
+
+  struct ccns_slice *tmp = ccns_slice_create();
+  if (ccns_read_slice(h, name, tmp) != 0)
+  {
+    res |= ccns_write_slice(h, sync, name);
+    if (res != 0)
+    {
+      fprintf(stderr, "Create slice failed.");
+      exit(1);
+    }
+  }
+
+  ccn_charbuf_destroy(&t);
+  ccn_charbuf_destroy(&p);
+  ccn_charbuf_destroy(&name);
+  ccns_slice_destroy(&tmp);
+  ccns_slice_destroy(&sync);
+  free(topo);
+  free(prefix);
+}
+
 int
 main(int argc, char **argv)
 {
   const char *progname = argv[0];
   struct ccn *ccn = NULL;
-  int res;
+  int res = 0;
   char *identity = NULL;
   char *affiliation = NULL;
   char *keyfile = NULL;
@@ -298,7 +343,7 @@ main(int argc, char **argv)
   fclose(fp);
 	EVP_PKEY *pubkey = X509_get_pubkey(cert);
 	kd_size = i2d_PUBKEY(pubkey, &keydata);
-	if (res < 0) {
+	if (kd_size < 0) {
 		fprintf(stderr, "Invalid cert\n");
 		exit(1);
 	}
@@ -327,6 +372,8 @@ main(int argc, char **argv)
     fprintf(stderr, "Could not connect to ccnd\n");
     exit(1);
   }
+
+  create_slice(ccn, SYNC_PREFIX, SYNC_PREFIX);
 
   struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
   sp.type = CCN_CONTENT_KEY;
@@ -412,7 +459,7 @@ main(int argc, char **argv)
   ccn_charbuf_destroy(&name_v);
   if (res < 0)
   {
-    fprintf(stderr, "No response form repository\n");
+    fprintf(stderr, "No response from repository\n");
     exit(1);
   }
   
