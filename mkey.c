@@ -75,7 +75,7 @@ unbase64(const char *input, char **output)
 }
 
 static void
-hash(const char *digest_name, char *input, char *output, int *len)
+hash(const char *digest_name, char *input, size_t input_size, char *output, int *len)
 {
   EVP_MD_CTX mdctx;
   const EVP_MD *md;
@@ -89,7 +89,7 @@ hash(const char *digest_name, char *input, char *output, int *len)
 
   EVP_MD_CTX_init(&mdctx);
   EVP_DigestInit_ex(&mdctx, md, NULL);
-  EVP_DigestUpdate(&mdctx, input, strlen(input));
+  EVP_DigestUpdate(&mdctx, input, input_size);
   EVP_DigestFinal_ex(&mdctx, output, len);
   EVP_MD_CTX_cleanup(&mdctx);
 }
@@ -291,17 +291,20 @@ main(int argc, char **argv)
 
   OpenSSL_add_all_digests();
 
-  char *keydata, *keyhash, *encodedhash;
-  int len;
-  fseek(fp, 0, SEEK_END);
-  len = ftell(fp);
-  rewind(fp);
-  keydata = calloc(1, sizeof(char) * (len + 1));
-  fread(keydata, 1, len, fp);
+  unsigned char *keydata;
+	size_t kd_size, len;
+	char *keyhash, *encodedhash;
+	X509 *cert = PEM_read_X509(fp, NULL, NULL, NULL);
   fclose(fp);
+	EVP_PKEY *pubkey = X509_get_pubkey(cert);
+	kd_size = i2d_PUBKEY(pubkey, &keydata);
+	if (res < 0) {
+		fprintf(stderr, "Invalid cert\n");
+		exit(1);
+	}
 
   keyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
-  hash("SHA1", keydata, keyhash, &len);
+  hash("SHA1", keydata, kd_size, keyhash, &len);
   base64(keyhash, &encodedhash);
   char *pos = strchr(encodedhash, '/');
   while (pos != NULL)
@@ -387,7 +390,7 @@ main(int argc, char **argv)
   struct ccn_charbuf *content = ccn_charbuf_create();
   ccn_name_append_numeric(keyname, CCN_MARKER_SEQNUM, 0);
   sp.sp_flags |= CCN_SP_FINAL_BLOCK;
-  res = ccn_sign_content(ccn, content, keyname, &sp, keydata, strlen(keydata));
+  res = ccn_sign_content(ccn, content, keyname, &sp, keydata, kd_size);
   if (res != 0)
   {
     fprintf(stderr, "Failed to encode ContentObject (res == %d)\n", res);
