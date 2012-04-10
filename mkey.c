@@ -8,7 +8,8 @@
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 
-#define SYNC_PREFIX "/ndn/keys"
+#define SYNC_TOPO_PREFIX "/KEYS"
+#define SYNC_NAME_PREFIX "/ndn/keys"
 
 static void
 usage(const char *progname)
@@ -332,8 +333,7 @@ main(int argc, char **argv)
 	char *keyhash, *encodedhash;
 	X509 *cert = PEM_read_X509(fp, NULL, NULL, NULL);
   fclose(fp);
-	EVP_PKEY *pubkey = X509_get_pubkey(cert);
-	kd_size = i2d_PUBKEY(pubkey, &keydata);
+	kd_size = i2d_X509_PUBKEY(X509_get_X509_PUBKEY(cert), &keydata);
 	if (kd_size < 0) {
 		fprintf(stderr, "Invalid cert\n");
 		exit(1);
@@ -364,7 +364,7 @@ main(int argc, char **argv)
     exit(1);
   }
 
-  create_slice(ccn, SYNC_PREFIX, SYNC_PREFIX);
+  create_slice(ccn, SYNC_TOPO_PREFIX, SYNC_NAME_PREFIX);
 
   struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
   sp.type = CCN_CONTENT_KEY;
@@ -373,18 +373,18 @@ main(int argc, char **argv)
   ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%ld", 100);
   sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
 
-  /*
   struct ccn_charbuf *c = ccn_charbuf_create();
   ccn_name_from_uri(c, keyuri);
+	/*
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyLocator, CCN_DTAG);
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyName, CCN_DTAG);
   ccn_charbuf_append(sp.template_ccnb, c->buf, c->length);
   ccn_charbuf_append_closer(sp.template_ccnb); // KeyName
   ccn_charbuf_append_closer(sp.template_ccnb); // KeyLocator
   sp.sp_flags |= CCN_SP_TEMPL_KEY_LOCATOR;
-  */
+	*/
   ccn_charbuf_append_closer(sp.template_ccnb); // SignedInfo
-  //ccn_charbuf_destroy(&c);
+  ccn_charbuf_destroy(&c);
 
   struct ccn_charbuf *default_pubid = ccn_charbuf_create();
   struct ccn_charbuf *temp = ccn_charbuf_create();
