@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <ccn/ccn.h>
+#include <ccn/uri.h>
 #include <ccn/sync.h>
 #include <libxml/parser.h>
 #include <openssl/evp.h>
@@ -72,7 +74,7 @@ unbase64(const char *input, char **output)
 }
 
 static void
-hash(const char *digest_name, char *input, size_t input_size, char *output, int *len)
+hash(const char *digest_name, unsigned char *input, size_t input_size, unsigned char *output, size_t *len)
 {
   EVP_MD_CTX mdctx;
   const EVP_MD *md;
@@ -136,8 +138,8 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
     {
       if (*affl == NULL)
       {
-	*affl = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
-	trim(affl);
+        *affl = (char*) xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+        trim(affl);
       }
       continue;
     }
@@ -145,8 +147,8 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
     {
       if (*prefix == NULL)
       {
-	*prefix = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
-	trim(prefix);
+        *prefix = (char*) xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+        trim(prefix);
       }
       continue;
     }
@@ -154,8 +156,8 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
     {
       if (*signkey == NULL)
       {
-	*signkey = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
-	trim(signkey);
+        *signkey = (char*) xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+        trim(signkey);
       }
       continue;
     }
@@ -163,8 +165,8 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
     {
       if (*keyuri == NULL)
       {
-	*keyuri = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
-	trim(keyuri);
+        *keyuri = (char*) xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+        trim(keyuri);
       }
       continue;
     }
@@ -172,9 +174,9 @@ extract_config(const xmlDocPtr doc, char **affl, char **prefix, char **signkey, 
     {
       if (*fresh == 0)
       {
-	xmlChar *tmp = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
-	*fresh = atoi(tmp);
-	xmlFree(tmp);
+        xmlChar *tmp = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
+        *fresh = atoi((char*) tmp);
+        xmlFree(tmp);
       }
     }
   }
@@ -240,33 +242,33 @@ main(int argc, char **argv)
     switch (res)
     {
       case 'i':
-	identity = strdup(optarg);
-	break;
+        identity = strdup(optarg);
+        break;
       case 'a':
-	affiliation = strdup(optarg);
-	break;
+        affiliation = strdup(optarg);
+        break;
       case 'f':
-	keyfile = strdup(optarg);
-	break;
+        keyfile = strdup(optarg);
+        break;
       case 'k':
-	signkey = strdup(optarg);
-	break;
+        signkey = strdup(optarg);
+        break;
       case 'c':
-	config = strdup(optarg);
-	break;
+        config = strdup(optarg);
+        break;
       case 'p':
-	prefix = strdup(optarg);
-	break;
+        prefix = strdup(optarg);
+        break;
       case 'u':
-	keyuri = strdup(optarg);
-	break;
+        keyuri = strdup(optarg);
+        break;
       case 'x':
-	freshness = atoi(optarg);
-	break;
+        freshness = atoi(optarg);
+        break;
       case 'h':
       default:
-	usage(progname);
-	break;
+        usage(progname);
+        break;
     }
 
   argc -= optind;
@@ -328,19 +330,20 @@ main(int argc, char **argv)
 
   OpenSSL_add_all_digests();
 
-  unsigned char *keydata;
+  unsigned char *keydata = NULL;
 	size_t kd_size, len;
 	char *keyhash, *encodedhash;
-	X509 *cert = PEM_read_X509(fp, NULL, NULL, NULL);
+  X509 *cert = PEM_read_X509(fp, NULL, NULL, NULL);
   fclose(fp);
-	kd_size = i2d_X509_PUBKEY(X509_get_X509_PUBKEY(cert), &keydata);
-	if (kd_size < 0) {
-		fprintf(stderr, "Invalid cert\n");
-		exit(1);
-	}
+  kd_size = i2d_X509_PUBKEY(X509_get_X509_PUBKEY(cert), &keydata);
+  if (kd_size < 0)
+  {
+    fprintf(stderr, "Invalid cert\n");
+    exit(1);
+  }
 
   keyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
-  hash("SHA1", keydata, kd_size, keyhash, &len);
+  hash("SHA1", keydata, kd_size, (unsigned char*)keyhash, &len);
   base64(keyhash, &encodedhash);
   char *pos = strchr(encodedhash, '/');
   while (pos != NULL)
@@ -375,14 +378,12 @@ main(int argc, char **argv)
 
   struct ccn_charbuf *c = ccn_charbuf_create();
   ccn_name_from_uri(c, keyuri);
-	/*
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyLocator, CCN_DTAG);
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyName, CCN_DTAG);
   ccn_charbuf_append(sp.template_ccnb, c->buf, c->length);
   ccn_charbuf_append_closer(sp.template_ccnb); // KeyName
   ccn_charbuf_append_closer(sp.template_ccnb); // KeyLocator
   sp.sp_flags |= CCN_SP_TEMPL_KEY_LOCATOR;
-	*/
   ccn_charbuf_append_closer(sp.template_ccnb); // SignedInfo
   ccn_charbuf_destroy(&c);
 

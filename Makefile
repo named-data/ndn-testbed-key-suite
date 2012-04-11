@@ -1,18 +1,20 @@
+CFLAGS=-O0 -g3 -Wall
+
 .PHONY: all clean
 
 all: mkey sync newsync pem
 
 mkey: mkey.c
-	gcc mkey.c `xml2-config --cflags` `xml2-config --libs` -lccn -lcrypto -o mkey
+	gcc ${CFLAGS} mkey.c `xml2-config --cflags` `xml2-config --libs` -lccn -lcrypto -o mkey
 
 sync: sync.c
-	gcc sync.c -lccn -lcrypto -o sync
+	gcc ${CFLAGS} sync.c -lccn -lcrypto -o sync
 
 newsync: newsync.c
-	gcc newsync.c -lccn -lcrypto -o newsync
+	gcc ${CFLAGS} newsync.c -lccn -lcrypto -o newsync
 
 pem: pem.c
-	gcc pem.c -lcrypto -o pem
+	gcc ${CFLAGS} pem.c -lcrypto -o pem
 
 clean:
 	rm -rf mkey sync newsync pem

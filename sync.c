@@ -21,6 +21,7 @@
 #include <ccn/ccn.h>
 #include <ccn/charbuf.h>
 #include <ccn/digest.h>
+#include <ccn/uri.h>
 
 #define SLICE_VERSION 20120325
 
@@ -66,7 +67,6 @@ send_slice(const char *topo, const char *prefix)
   struct ccn_charbuf *cb = ccn_charbuf_create();
   struct ccn_charbuf *hash = ccn_charbuf_create();
   struct ccn_charbuf *nm = ccn_charbuf_create();
-  int i = 0;
   int res = 0;
 
   res |= ccnb_element_begin(cb, CCN_DTAG_SyncConfigSlice);
