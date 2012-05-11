@@ -355,9 +355,7 @@ main(int argc, char **argv)
 
   struct ccn_charbuf *keyname = ccn_charbuf_create();
   char *pname = calloc(1, sizeof(char) * 100);
-  strcpy(pname, prefix);
-  strcat(pname, "/");
-  strcat(pname, encodedhash);
+  sprintf(pname, "%s/%s", prefix, encodedhash);
   ccn_name_from_uri(keyname, pname);
 
   ccn = ccn_create();
@@ -417,11 +415,8 @@ main(int argc, char **argv)
   }
   
   char *info = calloc(1, sizeof(char) * 100);
-  strcpy(info, "<Meta><Name>");
-  strcat(info, identity);
-  strcat(info, "</Name><Affiliation>");
-  strcat(info, affiliation);
-  strcat(info, "</Affiliation></Meta>");
+  sprintf(info, "<Meta><Name>%s</Name><Affiliation>%s</Affiliation></Meta>",
+      identity, affiliation);
   struct ccn_charbuf *infoname = ccn_charbuf_create();
   ccn_name_from_uri(infoname, prefix);
   ccn_name_from_uri(infoname, "info");
