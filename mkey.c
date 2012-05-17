@@ -34,7 +34,7 @@ usage(const char *progname)
 }
 
 static void
-base64(const char *input, char **output)
+base64(const char *input, int input_size, char **output)
 {
   BIO *bmem, *b64;
   BUF_MEM *bptr;
@@ -42,7 +42,7 @@ base64(const char *input, char **output)
   b64 = BIO_new(BIO_f_base64());
   bmem = BIO_new(BIO_s_mem());
   b64 = BIO_push(b64, bmem);
-  BIO_write(b64, input, strlen(input));
+  BIO_write(b64, input, input_size);
   BIO_flush(b64);
   BIO_get_mem_ptr(b64, &bptr);
 
@@ -55,19 +55,17 @@ base64(const char *input, char **output)
 }
 
 static void
-unbase64(const char *input, char **output)
+unbase64(const char *input, int input_size, char **output, int *output_size)
 {
   BIO *b64, *bmem;
-  int len = strlen(input);
 
-  char *buf = (char *)malloc(len);
-  memset(buf, 0, len);
+  char *buf = (char*) calloc(1, sizeof(char) * input_size);
 
   b64 = BIO_new(BIO_f_base64());
-  bmem = BIO_new_mem_buf((void *)input, len);
+  bmem = BIO_new_mem_buf((void*) input, input_size);
   bmem = BIO_push(b64, bmem);
   
-  BIO_read(bmem, buf, len);
+  *output_size = BIO_read(bmem, buf, input_size);
   *output = buf;
 
   BIO_free_all(bmem);
@@ -238,7 +236,7 @@ main(int argc, char **argv)
   int freshness = 0;
   xmlDocPtr doc = NULL;
   
-  while ((res = getopt(argc, argv, "hakxc:i:f:")) != -1)
+  while ((res = getopt(argc, argv, "hc:i:f:a:x:k:")) != -1)
     switch (res)
     {
       case 'i':
@@ -343,8 +341,8 @@ main(int argc, char **argv)
   }
 
   keyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
-  hash("SHA1", keydata, kd_size, (unsigned char*)keyhash, &len);
-  base64(keyhash, &encodedhash);
+  hash("SHA1", keydata, kd_size, (unsigned char*) keyhash, &len);
+  base64(keyhash, len, &encodedhash);
   char *pos = strchr(encodedhash, '/');
   while (pos != NULL)
   {

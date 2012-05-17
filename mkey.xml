@@ -1,9 +1,9 @@
 <config>
   <affiliation>
-    UCLA
+    TEST
   </affiliation>
   <prefix>
-    /ndn/keys/ucla
+    /ndn/keys/test
   </prefix>
   <validity_period>
     365
@@ -12,6 +12,6 @@
     /home/bcy/.ccnx
   </signing_key>
   <pubkey_uri>
-    /ndn/keys/ucla/6cOTuhg8wx-nxD3fPzBBPQ3rPI0%3D
+    /ndn/keys/3VVC6DjfJcXHOm9NttgE8cgkXdc%3D
   </pubkey_uri>
 </config>
