@@ -9,9 +9,9 @@
     365
   </validity_period>
   <signing_key>
-    /home/bcy/.ccnx
+    keystore1
   </signing_key>
   <pubkey_uri>
-    /ndn/keys/3VVC6DjfJcXHOm9NttgE8cgkXdc%3D
+    /ndn/keys/root
   </pubkey_uri>
 </config>
