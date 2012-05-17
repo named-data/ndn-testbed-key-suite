@@ -236,7 +236,7 @@ main(int argc, char **argv)
   int freshness = 0;
   xmlDocPtr doc = NULL;
   
-  while ((res = getopt(argc, argv, "hc:i:f:a:x:k:u:")) != -1)
+  while ((res = getopt(argc, argv, "hc:i:f:a:x:k:u:p:")) != -1)
     switch (res)
     {
       case 'i':
