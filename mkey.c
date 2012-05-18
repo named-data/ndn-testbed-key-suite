@@ -5,6 +5,8 @@
 #include <ctype.h>
 #include <ccn/ccn.h>
 #include <ccn/uri.h>
+#include <ccn/keystore.h>
+#include <ccn/signing.h>
 #include <ccn/sync.h>
 #include <libxml/parser.h>
 #include <openssl/evp.h>
@@ -329,8 +331,8 @@ main(int argc, char **argv)
   OpenSSL_add_all_digests();
 
   unsigned char *keydata = NULL;
-	size_t kd_size, len;
-	char *keyhash, *encodedhash;
+  size_t kd_size, len;
+  char *keyhash, *encodedhash;
   X509 *cert = PEM_read_X509(fp, NULL, NULL, NULL);
   fclose(fp);
   kd_size = i2d_X509_PUBKEY(X509_get_X509_PUBKEY(cert), &keydata);
@@ -372,8 +374,28 @@ main(int argc, char **argv)
   ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%d", freshness);
   sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
 
+  struct ccn_keystore *keystore = ccn_keystore_create();
+  res = ccn_keystore_init(keystore, signkey, "Th1s1sn0t8g00dp8ssw0rd.");
+  if (res != 0)
+  {
+    fprintf(stderr, "Failed to initialize keystore.\n");
+    exit(1);
+  }
+  const struct ccn_pkey *pkey = ccn_keystore_public_key(keystore);
+  char *signkeyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
+  char *encoded = NULL;
+  size_t signkey_size = i2d_PUBKEY((EVP_PKEY*) pkey, NULL);
+  unsigned char *signkey_data = calloc(1, sizeof(char) * signkey_size);
+  size_t hash_size;
+
+  i2d_PUBKEY((EVP_PKEY*) pkey, &signkey_data);
+  hash("SHA1", signkey_data, signkey_size,
+      (unsigned char*) signkeyhash, &hash_size);
+  base64(signkeyhash, hash_size, &encoded);
+
   struct ccn_charbuf *c = ccn_charbuf_create();
   ccn_name_from_uri(c, keyuri);
+  ccn_name_from_uri(c, encoded);
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyLocator, CCN_DTAG);
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_KeyName, CCN_DTAG);
   ccn_charbuf_append(sp.template_ccnb, c->buf, c->length);
@@ -383,10 +405,13 @@ main(int argc, char **argv)
   ccn_charbuf_append_closer(sp.template_ccnb); // SignedInfo
   ccn_charbuf_destroy(&c);
 
+  free(encoded);
+  free(signkeyhash);
+  free(signkey_data);
+  ccn_keystore_destroy(&keystore);
+
   struct ccn_charbuf *default_pubid = ccn_charbuf_create();
-  struct ccn_charbuf *temp = ccn_charbuf_create();
-  ccn_charbuf_putf(temp, "%s", signkey);
-  res = ccn_load_private_key(ccn, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.", default_pubid);
+  res = ccn_load_private_key(ccn, signkey, "Th1s1sn0t8g00dp8ssw0rd.", default_pubid);
   if (res != 0)
   {
     fprintf(stderr, "Invalid keystore.\n");
