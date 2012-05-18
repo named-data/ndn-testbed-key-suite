@@ -28,7 +28,7 @@ usage(const char *progname)
       "    -a specify the affiliation of the key owner.\n"
       "    -f specify the public key file.\n"
       "    -k specify the path of keystore.\n"
-      "    -u specify the URI of signing public key.\n"
+      "    -u specify the name prefix of signing public key.\n"
       "    -p specify the key name prefix.\n"
       "    -x specify the validity period in days.\n",
       progname);
@@ -385,7 +385,7 @@ main(int argc, char **argv)
   char *signkeyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
   char *encoded = NULL;
   size_t signkey_size = i2d_PUBKEY((EVP_PKEY*) pkey, NULL);
-  unsigned char *signkey_data = calloc(1, sizeof(char) * signkey_size);
+  unsigned char *signkey_data = NULL;
   size_t hash_size;
 
   i2d_PUBKEY((EVP_PKEY*) pkey, &signkey_data);
@@ -407,7 +407,6 @@ main(int argc, char **argv)
 
   free(encoded);
   free(signkeyhash);
-  free(signkey_data);
   ccn_keystore_destroy(&keystore);
 
   struct ccn_charbuf *default_pubid = ccn_charbuf_create();

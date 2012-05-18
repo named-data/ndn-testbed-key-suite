@@ -12,6 +12,6 @@
     keystore1
   </signing_key>
   <pubkey_uri>
-    /ndn/keys/root
+    /ndn/keys/test
   </pubkey_uri>
 </config>
