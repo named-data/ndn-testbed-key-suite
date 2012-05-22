@@ -9,9 +9,9 @@
     365
   </validity_period>
   <signing_key>
-    keystore1
+    keystore
   </signing_key>
   <pubkey_uri>
-    /ndn/keys/test
+    /ndn/keys/root
   </pubkey_uri>
 </config>
