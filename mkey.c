@@ -392,6 +392,12 @@ main(int argc, char **argv)
   hash("SHA1", signkey_data, signkey_size,
       (unsigned char*) signkeyhash, &hash_size);
   base64(signkeyhash, hash_size, &encoded);
+  pos = strchr(encoded, '/');
+  while (pos != NULL)
+  {
+    *pos = '-';
+    pos = strchr(pos, '/');
+  }
 
   struct ccn_charbuf *c = ccn_charbuf_create();
   ccn_name_from_uri(c, keyuri);
