@@ -29,6 +29,9 @@ should be done first:
     <validity_period> - The validy period of the keys in days
     <signing_key> - The path to signing ccnx keystore
     <pubkey_uri> - The signing key's name prefix
+  
+NOTE: These configurations can also be overwiten by command 
+line parameters of 'mkey' utility.
 
 After completing previous steps, 'mkey' utility can be used 
 to actually publish the user's public key. The usage can be 
