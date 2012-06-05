@@ -11,6 +11,9 @@
 #include <libxml/parser.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+#ifdef __APPLE__
+#include <openssl/sha.h>
+#endif
 
 #define SYNC_TOPO_PREFIX "/KEYS"
 #define SYNC_NAME_PREFIX "/ndn/keys"
@@ -343,7 +346,12 @@ main(int argc, char **argv)
   }
 
   keyhash = calloc(1, sizeof(char) * (SHA_DIGEST_LENGTH + 1));
+#ifdef __APPLE__
+  SHA1(keydata, kd_size, (unsigned char *)keyhash);
+  len = SHA_DIGEST_LENGTH;
+#else
   hash("SHA1", keydata, kd_size, (unsigned char*) keyhash, &len);
+#endif
   base64(keyhash, len, &encodedhash);
   char *pos = strchr(encodedhash, '/');
   while (pos != NULL)
@@ -389,8 +397,13 @@ main(int argc, char **argv)
   size_t hash_size;
 
   i2d_PUBKEY((EVP_PKEY*) pkey, &signkey_data);
+#ifdef __APPLE__
+  SHA1(signkey_data, signkey_size, (unsigned char *)signkeyhash);
+  hash_size = SHA_DIGEST_LENGTH;
+#else
   hash("SHA1", signkey_data, signkey_size,
       (unsigned char*) signkeyhash, &hash_size);
+#endif
   base64(signkeyhash, hash_size, &encoded);
   pos = strchr(encoded, '/');
   while (pos != NULL)
