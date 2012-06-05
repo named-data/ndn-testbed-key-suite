@@ -6,7 +6,7 @@ libxml2, libcrypto(i.e. openssl library)
 Building the 'mkey' utility is simply a one-stop task:
 make
 
-========================== Usage ===============================
+================ Usage (For site operators) ====================
 'mkey' is a utility for site operators to publish users' public
 keys. Before execute the command to publish keys, several steps
 should be done first:
@@ -18,10 +18,8 @@ should be done first:
 2) get the signing key and the key to be published ready
     For the signing key, create a CCNx keystore using 
   'ccninitkeystore' utility provided by CCNx library.
-    For the key to be pu'iblished, the 'pem' utility also 
-  provided in the same directory as 'mkey' can be used. 'pem' 
-  takes a CCNx keystore as input, and outputs X509 certificate
-  file which will be the input for 'mkey'.
+    For the key to be published, X509 certificate should be 
+  collected from the key owner.
 
 3) make the configuration file ready
     A sample configuration file has been provided: mkey.xml.
@@ -32,14 +30,25 @@ should be done first:
     <signing_key> - The path to signing ccnx keystore
     <pubkey_uri> - The signing key's name prefix
 
-  After completing previous steps, 'mkey' utility can be used 
+After completing previous steps, 'mkey' utility can be used 
 to actually publish the user's public key. The usage can be 
 accessed by executing the following command:
 ./mkey -h
 
-  For example, the following command
+For example, the following command
 ./mkey -c mkey.xml -i alex -f pkey.pem -k /path/to/signing/keystore
 publishes the public key stored in pkey.pem using the signing key 
 located in /path/to/signing/keystore, using the configuration file
 mkey.xml with the real-world identity of the key set to alex.
+
+=================== Usage (For key owners) ========================
+The 'pem' utility provided in the same directory as 'mkey' can be 
+used for extracting X509 certificate from CCNx keystore.
+'pem' takes a CCNx keystore as input, and outputs X509 certificate
+file which will be the input for 'mkey' (for site operators).
+
+For example, the following command
+./pem -i /path/to/keystore -o /path/to/certificate.pem
+reads from CCNx keystore locates in /path/to/keystore, and outputs
+the X509 certificate as /path/to/certificate.pem.
 
