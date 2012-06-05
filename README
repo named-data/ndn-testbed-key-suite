@@ -44,7 +44,7 @@ publishes the public key stored in pkey.pem using the signing key
 located in /path/to/signing/keystore, using the configuration file
 mkey.xml with the real-world identity of the key set to alex.
 
-=================== Usage (For key owners) ========================
+=================== Usage (For users/key owners) ========================
 The 'pem' utility provided in the same directory as 'mkey' can be 
 used for extracting X509 certificate from CCNx keystore.
 'pem' takes a CCNx keystore as input, and outputs X509 certificate
