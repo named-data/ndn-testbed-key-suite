@@ -3,11 +3,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <time.h>
+
 #include <ccn/ccn.h>
 #include <ccn/uri.h>
 #include <ccn/keystore.h>
 #include <ccn/signing.h>
 #include <ccn/sync.h>
+
 #include <libxml/parser.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -379,8 +382,8 @@ main(int argc, char **argv)
   sp.type = CCN_CONTENT_KEY;
   sp.template_ccnb = ccn_charbuf_create();
   ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_SignedInfo, CCN_DTAG);
-  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%d", freshness);
-  sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
+  //ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%d", freshness);
+  //sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
 
   struct ccn_keystore *keystore = ccn_keystore_create();
   res = ccn_keystore_init(keystore, signkey, "Th1s1sn0t8g00dp8ssw0rd.");
@@ -456,8 +459,8 @@ main(int argc, char **argv)
   }
   
   char *info = calloc(1, sizeof(char) * 100);
-  sprintf(info, "<Meta><Name>%s</Name><Affiliation>%s</Affiliation></Meta>",
-      identity, affiliation);
+  sprintf(info, "<Meta><Name>%s</Name><Affiliation>%s</Affiliation><Valid_to>%ld</Valid_to></Meta>",
+      identity, affiliation, time(NULL) + freshness * 24 * 3600);
   struct ccn_charbuf *infoname = ccn_charbuf_create();
   ccn_name_from_uri(infoname, prefix);
   ccn_name_from_uri(infoname, "info");
