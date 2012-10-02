@@ -5,10 +5,10 @@ CFLAGS=-O0 -g3 -Wall
 all: mkey pem
 
 mkey: mkey.c
-	gcc ${CFLAGS} mkey.c `xml2-config --cflags` `xml2-config --libs` -lccn -lccnsync -lcrypto -o mkey
+	gcc ${CFLAGS} mkey.c `xml2-config --cflags` `xml2-config --libs` -L/usr/local/lib -lccnsync -lccn -lcrypto -o mkey
 
 pem: pem.c
 	gcc ${CFLAGS} pem.c -lcrypto -o pem
 
 clean:
-	rm -rf mkey pem
+	rm -rf mkey pem *.dSYM
