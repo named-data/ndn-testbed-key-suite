@@ -80,7 +80,7 @@ unbase64(const char *input, int input_size, char **output, int *output_size)
 }
 
 static void
-hash(const char *digest_name, unsigned char *input, size_t input_size, unsigned char *output, size_t *len)
+hash(const char *digest_name, unsigned char *input, size_t input_size, unsigned char *output, unsigned int *len)
 {
   EVP_MD_CTX mdctx;
   const EVP_MD *md;
@@ -337,7 +337,8 @@ main(int argc, char **argv)
   OpenSSL_add_all_digests();
 
   unsigned char *keydata = NULL;
-  size_t kd_size, len;
+  size_t kd_size; 
+  unsigned int len;
   char *keyhash, *encodedhash;
   X509 *cert = PEM_read_X509(fp, NULL, NULL, NULL);
   fclose(fp);
@@ -397,7 +398,7 @@ main(int argc, char **argv)
   char *encoded = NULL;
   size_t signkey_size = i2d_PUBKEY((EVP_PKEY*) pkey, NULL);
   unsigned char *signkey_data = NULL;
-  size_t hash_size;
+  unsigned int hash_size;
 
   i2d_PUBKEY((EVP_PKEY*) pkey, &signkey_data);
 #ifdef __APPLE__
