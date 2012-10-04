@@ -1,0 +1,11 @@
+'pem' takes a CCNx keystore as input, and outputs X509 certificate
+file which will be the input for 'mkey' (used by site operators)
+
+For example, the following command
+./pem -i /path/to/keystore -o /path/to/certificate.pem
+reads from CCNx keystore locates in /path/to/keystore, and outputs
+the X509 certificate as /path/to/certificate.pem.
+
+If you are reading from the default keystore for you account,
+which locates in $HOME/.ccnx/.ccnx_keystore, this should do it:
+./pem -o my-name.pem
