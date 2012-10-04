@@ -18,7 +18,7 @@
 #include <openssl/sha.h>
 #endif
 
-#define SYNC_TOPO_PREFIX "/KEYS"
+#define SYNC_TOPO_PREFIX "/ndn/broadcast/sync/keys"
 #define SYNC_NAME_PREFIX "/ndn/keys"
 
 static void
