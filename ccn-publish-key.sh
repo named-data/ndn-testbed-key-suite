@@ -2,12 +2,6 @@
 
 OPENSSL=openssl
 HEXDUMP=hexdump
-BASEPREFIX=
-
-SYNC_TOPO_PREFIX="/ndn/broadcast/sync/keys"
-SYNC_NAME_PREFIX="/ndn/keys"
-
-ccnsyncslice create "$SYNC_TOPO_PREFIX" "$SYNC_NAME_PREFIX"
 
 export PATH="$BASEPREFIX/bin:$PATH"
 
@@ -71,7 +65,7 @@ if [ ! -d "$SIGNKEY" ]; then
     exit 1
 fi
 
-pubkey_base64=`$OPENSSL x509 -in "$KEYFILE" -pubkey -noout | $OPENSSL pkey -pubin -outform der | $OPENSSL dgst -sha1 -binary | base64`
+pubkey_base64=`$OPENSSL x509 -in "$KEYFILE" -pubkey -noout | $OPENSSL pkey -pubin -outform der | $OPENSSL dgst -sha256 -binary | base64`
 pubkey_binhash=`echo $pubkey_base64 | base64 -D | $HEXDUMP -e '1/1 "^%02x"' | sed -e 's/\^/\%/g'`
 
 valid_to=$(( `date -u +%s` + $FRESHNESS*24*3600 ))
