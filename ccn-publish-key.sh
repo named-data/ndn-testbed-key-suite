@@ -1,8 +1,12 @@
-#!/bin/sh
+#!/bin/bash
 
 OPENSSL=openssl
 HEXDUMP=hexdump
-BASE64=base64
+if [ `uname` == "Linux" ]; then
+    BASE64="base64 -i"
+else
+    BASE64="base64"
+fi
 SED=sed
 XXD=xxd
 
@@ -67,7 +71,7 @@ if [ ! -d "$SIGNKEY" ]; then
 fi
 
 pubkey_base64=`$OPENSSL x509 -in "$KEYFILE" -pubkey -noout | $OPENSSL pkey -pubin -outform der | $BASE64`
-pubkey_binhash=`echo $pubkey_base64 | $BASE64 -D | $OPENSSL dgst -sha256 -binary | $HEXDUMP -v -e '1/1 "^%02x"' | sed -e 's/\^/\%/g'`
+pubkey_binhash=`echo $pubkey_base64 | $BASE64 --decode | $OPENSSL dgst -sha256 -binary | $HEXDUMP -v -e '1/1 "^%02x"' | sed -e 's/\^/\%/g'`
 
 valid_to=$(( `date -u +%s` + $FRESHNESS*24*3600 ))
 
@@ -75,7 +79,7 @@ info_base64=`echo "<Meta><Name>$IDENTITY</Name><Affiliation>$AFFILIATION</Affili
 
 export KEY_PASSWORD=${CCNX_KEYSTORE_PASSWORD:-"Th1s1sn0t8g00dp8ssw0rd."}
 root_base64=`$OPENSSL pkcs12 -in "$SIGNKEY/.ccnx_keystore" -nomacver -password env:KEY_PASSWORD -clcerts -nokeys | $OPENSSL x509 -pubkey -noout | $OPENSSL pkey -pubin -outform der | $BASE64`
-root_binhash=`echo $root_base64 | $BASE64 -D | $OPENSSL dgst -sha256 -binary | $HEXDUMP -v -e '1/1 "^%02x"' | sed -e 's/\^/\%/g'`
+root_binhash=`echo $root_base64 | $BASE64 --decode | $OPENSSL dgst -sha256 -binary | $HEXDUMP -v -e '1/1 "^%02x"' | sed -e 's/\^/\%/g'`
 
 function repo_write {
    URL=$1
@@ -92,18 +96,17 @@ function repo_write {
 
    if [ "$SIGNKEYURI" == "self" ]; then
        echo "Writing self-certified key"
-       echo $BASE64_CONTENT | $BASE64 -D | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l "$URL/%00" 
+       echo $BASE64_CONTENT | $BASE64 --decode | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l "$URL/%00" 
    else
        # echo "Writing site-certified key"
-       echo $BASE64_CONTENT | $BASE64 -D | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l -k "$SIGNKEYURI/$root_binhash/%00" "$URL/%00" 
+       echo $BASE64_CONTENT | $BASE64 --decode | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l -k "$SIGNKEYURI/$root_binhash" "$URL/%00" 
    fi
 }
-
-repo_write "$PREFIX/$pubkey_binhash" $pubkey_base64
 
 TIME=`date -u +%s`
 VERSION=`printf "%.10x" $TIME | $XXD -r -p | $HEXDUMP -v -e '1/1 "^%02x"' | $SED -e 's/\^/\%/g'`
 
-repo_write "$PREFIX/info/$pubkey_binhash/%FD%01$VERSION" $info_base64
+repo_write "$PREFIX/$pubkey_binhash/%FD%01$VERSION" "$pubkey_base64"
+repo_write "$PREFIX/info/$pubkey_binhash/%FD%01$VERSION" "$info_base64"
 
 exit 0
