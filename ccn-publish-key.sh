@@ -2,6 +2,9 @@
 
 OPENSSL=openssl
 HEXDUMP=hexdump
+BASE64=base64
+SED=sed
+XXD=xxd
 
 export PATH="$BASEPREFIX/bin:$PATH"
 
@@ -53,8 +56,6 @@ if [ "x$IDENTITY" == "x" -o "x$AFFILIATION" == "x" -o \
     usage "Incorrect parameter usage"
 fi 
 
-# echo "x$IDENTITY" == "x" -o "x$AFFILIATION" == "x" -o "x$KEYFILE" == "x" -o "x$PREFIX" == "x" -o "x$SIGNKEY" == "x" -o "x$FRESHNESS" == "x"
-
 if [ ! -f "$KEYFILE" ]; then
     echo "Cannot open key file [$KEYFILE]" >&2
     exit 1
@@ -65,12 +66,16 @@ if [ ! -d "$SIGNKEY" ]; then
     exit 1
 fi
 
-pubkey_base64=`$OPENSSL x509 -in "$KEYFILE" -pubkey -noout | $OPENSSL pkey -pubin -outform der | $OPENSSL dgst -sha256 -binary | base64`
-pubkey_binhash=`echo $pubkey_base64 | base64 -D | $HEXDUMP -e '1/1 "^%02x"' | sed -e 's/\^/\%/g'`
+pubkey_base64=`$OPENSSL x509 -in "$KEYFILE" -pubkey -noout | $OPENSSL pkey -pubin -outform der | $BASE64`
+pubkey_binhash=`echo $pubkey_base64 | $BASE64 -D | $OPENSSL dgst -sha256 -binary | $HEXDUMP -v -e '1/1 "^%02x"' | sed -e 's/\^/\%/g'`
 
 valid_to=$(( `date -u +%s` + $FRESHNESS*24*3600 ))
 
-info_base64=`echo "<Meta><Name>$IDENTITY</Name><Affiliation>$AFFILIATION</Affiliation><Valid_to>$valid_to</Valid_to></Meta>" | base64`
+info_base64=`echo "<Meta><Name>$IDENTITY</Name><Affiliation>$AFFILIATION</Affiliation><Valid_to>$valid_to</Valid_to></Meta>" | $BASE64`
+
+export KEY_PASSWORD=${CCNX_KEYSTORE_PASSWORD:-"Th1s1sn0t8g00dp8ssw0rd."}
+root_base64=`$OPENSSL pkcs12 -in "$SIGNKEY/.ccnx_keystore" -nomacver -password env:KEY_PASSWORD -clcerts -nokeys | $OPENSSL x509 -pubkey -noout | $OPENSSL pkey -pubin -outform der | $BASE64`
+root_binhash=`echo $root_base64 | $BASE64 -D | $OPENSSL dgst -sha256 -binary | $HEXDUMP -v -e '1/1 "^%02x"' | sed -e 's/\^/\%/g'`
 
 function repo_write {
    URL=$1
@@ -78,17 +83,27 @@ function repo_write {
 
    # Request interest from repo
    repo_command="$URL/%C1.R.sw/`openssl rand -hex 20 2>/dev/null`"
-   ccnpeek -w 3 -s 1 "$repo_command" > /dev/null
+   ccnpeek -w 2 -s 1 "$repo_command" > /dev/null
    RET=$?
    if [ ! $RET -eq 0 ]; then
        echo "ERROR: Wrong URI or repo is not responding" >&2
        exit 1
    fi
 
-   echo $BASE64_CONTENT | base64 -D | CCNX_DIR=$SIGNKEY ccnpoke -f -x 60 -t KEY -l -k "$SIGNKEYURI" "$URL/%00" 
+   if [ "$SIGNKEYURI" == "self" ]; then
+       echo "Writing self-certified key"
+       echo $BASE64_CONTENT | $BASE64 -D | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l "$URL/%00" 
+   else
+       # echo "Writing site-certified key"
+       echo $BASE64_CONTENT | $BASE64 -D | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l -k "$SIGNKEYURI/$root_binhash/%00" "$URL/%00" 
+   fi
 }
 
 repo_write "$PREFIX/$pubkey_binhash" $pubkey_base64
-repo_write "$PREFIX/info/$pubkey_binhash" $info_base64
+
+TIME=`date -u +%s`
+VERSION=`printf "%.10x" $TIME | $XXD -r -p | $HEXDUMP -v -e '1/1 "^%02x"' | $SED -e 's/\^/\%/g'`
+
+repo_write "$PREFIX/info/$pubkey_binhash/%FD%01$VERSION" $info_base64
 
 exit 0
