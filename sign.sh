@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 D=`dirname "$0"`
 
@@ -20,6 +20,7 @@ while getopts "hs" flag; do
             ccnsyncslice create "$SYNC_TOPO_PREFIX" "$SYNC_NAME_PREFIX"
             RET=$?
             echo "Status of ccnsyncslice create: $RET"
+            exit 0
             ;;
         h | ?)
             cat <<EOF
@@ -27,14 +28,13 @@ while getopts "hs" flag; do
 	Sign user public keys
 
 	-h print this help message
-	-s create sync slice
+    -s create sync slice and exit
 EOF
             exit 1
     esac
 done
 
-for cert in ${CERTS}/*
-do
+for cert in `ls ${CERTS}/*.pem 2>/dev/null`; do
   USER=`basename $cert .pem`
   $MKEY -i $USER -a $AFFI -f $cert -F $KEYSTORE -P $SIGNING_KEY_NAME -p ${KEY_PREFIX}/${USER} -x $VALID_DAYS && echo "Signed $USER"
 done
