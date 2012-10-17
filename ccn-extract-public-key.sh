@@ -41,8 +41,10 @@ fi
 
 export KEY_PASSWORD=${CCNX_KEYSTORE_PASSWORD:-"Th1s1sn0t8g00dp8ssw0rd."}
 
+echo "Extracting public key from private key [$INPUT] to [$OUTPUT]"
+
 if [ "x$OUTPUT" == "x" ]; then
-    openssl pkcs12 -in ~/.ccnx/.ccnx_keystore -password env:KEY_PASSWORD -clcerts -nokeys -nomacver | openssl x509
+    openssl pkcs12 -in "$INPUT" -password env:KEY_PASSWORD -clcerts -nokeys -nomacver | openssl x509
 else
-    openssl pkcs12 -in ~/.ccnx/.ccnx_keystore -password env:KEY_PASSWORD -clcerts -nokeys -nomacver | openssl x509 > $OUTPUT
+    openssl pkcs12 -in "$INPUT" -password env:KEY_PASSWORD -clcerts -nokeys -nomacver | openssl x509 > $OUTPUT
 fi
