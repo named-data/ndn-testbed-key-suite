@@ -99,14 +99,14 @@ function repo_write {
        echo $BASE64_CONTENT | $BASE64 --decode | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l "$URL/%00" 
    else
        # echo "Writing site-certified key"
-       echo $BASE64_CONTENT | $BASE64 --decode | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l -k "$SIGNKEYURI/$root_binhash" "$URL/%00" 
+       echo $BASE64_CONTENT | $BASE64 --decode | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l -k "$SIGNKEYURI/%C1.M.K%00$root_binhash" "$URL/%00" 
    fi
 }
 
 TIME=`date -u +%s`
 VERSION=`printf "%.10x" $TIME | $XXD -r -p | $HEXDUMP -v -e '1/1 "^%02x"' | $SED -e 's/\^/\%/g'`
 
-repo_write "$PREFIX/$pubkey_binhash/%FD%01$VERSION" "$pubkey_base64"
-repo_write "$PREFIX/info/$pubkey_binhash/%FD%01$VERSION" "$info_base64"
+repo_write "$PREFIX/%C1.M.K%00$pubkey_binhash/%FD%01$VERSION" "$pubkey_base64"
+repo_write "$PREFIX/info/%C1.M.K%00$pubkey_binhash/%FD%01$VERSION" "$info_base64"
 
 exit 0
