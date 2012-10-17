@@ -13,6 +13,19 @@ CERTS=$D/certs
 SYNC_TOPO_PREFIX="/ndn/broadcast/sync/keys"
 SYNC_NAME_PREFIX="/ndn/keys"
 
+function usage {
+            cat <<EOF
+Usage:  
+  $0 [-h] (-s | -S)
+      Sign user public keys
+
+      -h print this help message
+      -S sign and publish user public keys (*.pem) located in ${CERTS} folder
+      -s create sync slice and exit
+EOF
+            exit 1
+}
+
 while getopts "hs" flag; do
     case "$flag" in
 	s) 
@@ -22,19 +35,17 @@ while getopts "hs" flag; do
             echo "Status of ccnsyncslice create: $RET"
             exit 0
             ;;
-        h | ?)
-            cat <<EOF
-    $0 [-h] [-s]
-	Sign user public keys
-
-	-h print this help message
-    -s create sync slice and exit
-EOF
-            exit 1
+	S)
+	    for cert in `ls ${CERTS}/*.pem 2>/dev/null`; do
+		USER=`basename $cert .pem`
+		$MKEY -i $USER -a $AFFI -f $cert -F $KEYSTORE -P $SIGNING_KEY_NAME -p ${KEY_PREFIX}/${USER} -x $VALID_DAYS && echo "Signed $USER"
+	    done
+	    exit 0
+	    ;;
+        *)
+	    usage
+	    ;;
     esac
 done
 
-for cert in `ls ${CERTS}/*.pem 2>/dev/null`; do
-  USER=`basename $cert .pem`
-  $MKEY -i $USER -a $AFFI -f $cert -F $KEYSTORE -P $SIGNING_KEY_NAME -p ${KEY_PREFIX}/${USER} -x $VALID_DAYS && echo "Signed $USER"
-done
+usage
