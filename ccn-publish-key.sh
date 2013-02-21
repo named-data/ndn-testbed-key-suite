@@ -58,7 +58,7 @@ if [ "x$IDENTITY" == "x" -o "x$AFFILIATION" == "x" -o \
      "x$SIGNKEY" == "x"  -o "x$SIGNKEYURI" == "x" -o \
      "x$FRESHNESS" == "x" ]; then
     usage "Incorrect parameter usage"
-fi 
+fi
 
 if [ ! -f "$KEYFILE" ]; then
     echo "Cannot open key file [$KEYFILE]" >&2
@@ -86,7 +86,7 @@ function repo_write {
    BASE64_CONTENT=$2
 
    # Request interest from repo
-   repo_command="$URL/%C1.R.sw/`openssl rand -hex 20 2>/dev/null`"
+   repo_command="$URL/%C1.R.sw/`openssl rand -base64 40 2>/dev/null`"
    ccnpeek -w 2 -s 1 "$repo_command" > /dev/null
    RET=$?
    if [ ! $RET -eq 0 ]; then
@@ -96,10 +96,10 @@ function repo_write {
 
    if [ "$SIGNKEYURI" == "self" ]; then
        echo "Writing self-certified key"
-       echo $BASE64_CONTENT | $BASE64 --decode | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l "$URL/%00" 
+       echo $BASE64_CONTENT | $BASE64 --decode | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l "$URL/%00"
    else
        # echo "Writing site-certified key"
-       echo $BASE64_CONTENT | $BASE64 --decode | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l -k "$SIGNKEYURI/%C1.M.K%00$root_binhash" "$URL/%00" 
+       echo $BASE64_CONTENT | $BASE64 --decode | CCNX_DIR=$SIGNKEY ccnpoke -w 2 -x 2000 -t KEY -l -k "$SIGNKEYURI/%C1.M.K%00$root_binhash" "$URL/%00"
    fi
 }
 
