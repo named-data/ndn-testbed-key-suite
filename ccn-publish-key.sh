@@ -86,7 +86,7 @@ function repo_write {
    BASE64_CONTENT=$2
 
    # Request interest from repo
-   repo_command="$URL/%C1.R.sw/`openssl rand -base64 40 2>/dev/null`"
+   repo_command="$URL/%C1.R.sw/`openssl rand 20 2>/dev/null | $XXD -p`"
    ccnpeek -w 2 -s 1 "$repo_command" > /dev/null
    RET=$?
    if [ ! $RET -eq 0 ]; then
