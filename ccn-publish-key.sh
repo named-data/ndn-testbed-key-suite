@@ -17,9 +17,10 @@ function usage {
     echo $1 >&2
   fi
   cat <<EOF
-    $0 [-h] [-i identity] [-a affiliation] [-f key_file]
-	[-k signing_key] [-u pubkey_uri] [-p key_prefix] [-x validity_period]
-	Reads key, storing it to local repo
+Usage:
+    $0 [-h] -i identity -a affiliation -f key_file \\
+        -p prefix-of-published-key -F path-to-signing-key-direcotry \\
+        -P prefix-of-signing-key -x validity_period
 
 	-h print this help message
 	-i specify the real-world identity of the key owner
@@ -29,8 +30,15 @@ function usage {
 
 	-F specify the path to the keystore (directory that contains .ccnx_keystore file).
            Keystore password can be defined through CCNX_KEYSTORE_PASSWORD environment variable
-	-P specify the name prefix of signing public key
+	-P specify the name prefix of signing public key (or "self" for self-signed key)
 	-x specify the validity period in days
+
+        The script performs the following operations:
+	  - reads public key <key_file>,
+          - creates content object with name <prefix-of-published-key>/%C1.M.K<sha256(key-bits)>/<version>/<segment>
+          - signs it with key <path-to-signing-key-direcotry>/.ccnx_keystore
+          - puts KeyLocator: <prefix-of-signing-key>/%C1.M.K<sha256(signing-key-bits)>
+          - publishes content object to local repo
 EOF
 
   exit 1
