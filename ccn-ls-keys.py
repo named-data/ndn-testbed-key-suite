@@ -8,9 +8,27 @@ except:
     print "   You can download and install it from here https://github.com/named-data/PyCCN"
     print "   If you're using OSX and macports, you can follow instructions http://irl.cs.ucla.edu/autoconf/client.html"
 
+NDN_root = "/ndn/keys/%C1.M.K%00%A7%D9%8B%81%DE%13%FCV%C5%A6%92%B4D%93nVp%9DRop%ED9%EF%B5%E2%03%29%A5S%3Eh/%FD%01%00P%81%BB%3D/%00"
+
 ccn = pyccn.CCN ()
 
 keys = {}
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+    def disable(self):
+        self.HEADER = ''
+        self.OKBLUE = ''
+        self.OKGREEN = ''
+        self.WARNING = ''
+        self.FAIL = ''
+        self.ENDC = ''
 
 def enumRecurs (name):
     import sys
@@ -24,7 +42,7 @@ def enumRecurs (name):
         exclude1 = pyccn.ExclusionFilter ()
         # print "Exclude list: [%s]" % ",".join ([str(pyccn.Name().append (n)) for n in excludeList])
         exclude1.add_names ([pyccn.Name().append (n) for n in excludeList])
-        interest_tmpl = pyccn.Interest (exclude = exclude1, interestLifetime=0.01, minSuffixComponents=1, maxSuffixComponents=100, scope=None)
+        interest_tmpl = pyccn.Interest (exclude = exclude1, interestLifetime=0.1, minSuffixComponents=1, maxSuffixComponents=100, scope=None)
 
         if True:
             class Slurp(pyccn.Closure):
@@ -70,47 +88,76 @@ def enumRecurs (name):
                     # if not keys[str(keyname)] or keys[str(keyname)] < version:
                     #     keys[str(keyname)] = version
                     try:
-                        if keys[str(keyname)][0] <= version:
-                            keys[str(keyname)] = [version, False]
+                        # print "%s, %d" % (version, pyccn.Name.seg2num (version))
+
+                        if keys[str(keyname)][2] <= pyccn.Name.seg2num (version):
+                            keys[str(keyname)] = [version, False, pyccn.Name.seg2num (version)]
                     except:
-                        keys[str(keyname)] = [version, False]
+                        keys[str(keyname)] = [version, False, pyccn.Name.seg2num (version)]
 
 
-print "Get all keys first (including unverifiable ones)"
+print "Enumerating all the keys (may take a couple of minutes)"
 enumRecurs (pyccn.Name ("/ndn/keys"))
 
 verified = { }
 
 print "\nTrying to verify keys"
 
-for key in sorted (keys.keys ()):
+def verify(name, spaces):
     class Slurp(pyccn.Closure):
         def __init__(self):
             self.finished = False
             self.verified = False
 
         def upcall(self, kind, upcallInfo):
-            # if kind == pyccn.UPCALL_CONTENT_UNVERIFIED:
-            #     print "Asking to verify"
-            #     return pyccn.RESULT_VERIFY
+            if kind == pyccn.UPCALL_CONTENT_UNVERIFIED:
+                return pyccn.RESULT_VERIFY
 
             if kind == pyccn.UPCALL_CONTENT:
                 self.verified = True
-                # return pyccn.RESULT_VERIFY
+                self.co = upcallInfo.ContentObject
 
             self.finished = True
             return pyccn.RESULT_OK
 
     slurp = Slurp ()
-    keyname = pyccn.Name (key).append (keys[key][0])
-    ccn.expressInterest (keyname, slurp, pyccn.Interest (interestLifetime=0.01, minSuffixComponents=2, maxSuffixComponents=2, scope=None))
+    ccn.expressInterest (name, slurp, pyccn.Interest (interestLifetime=0.1, childSelector=1, minSuffixComponents=1, maxSuffixComponents=20, scope=None))
 
-    while not slurp.finished:
+    maxwait = 500
+    while not slurp.finished and maxwait > 0:
         # print slurp.finished
         ccn.run (1)
+        maxwait = maxwait - 1
 
-    print "[%4s] %s" % ("OK" if slurp.verified else "FAIL", keyname)
+    if not slurp.verified:
+        print "%s%sCannot verify ContentObject%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
+        # done at this point
+        return False
 
-    # print "Key: %s%s [%s]" % (key, str (pyccn.Name ().append (keys[key])), "OK" if keys[key][1] else "Not OK")
-# print "Key: \n".join (keys)
+    keyLocator = slurp.co.signedInfo.keyLocator
+    if keyLocator:
+        if keyLocator.keyName:
+            print "%s|" % spaces
+            print "%s+-> %s" % (spaces, keyLocator.keyName)
+
+            return verify(keyLocator.keyName, "%s    " % spaces)
+        else:
+            if str(slurp.co.name) == NDN_root:
+                print "%s|" % spaces
+                print "%s--> self-signed NDN root" % spaces
+                return True
+            else:
+                print "%s|" % spaces
+                print "%s--> self-signed" % spaces
+                return False
+    else:
+        print "%s Key locator missing"
+
+
+for key in sorted (keys.keys ()):
+    keyname = pyccn.Name (key).append (keys[key][0])
+    print keyname
+    verified = verify (keyname, "    ")
+    print "    %s" % ("OK" if verified else bcolors.FAIL + "FAIL" + bcolors.ENDC)
+    print ""
 
