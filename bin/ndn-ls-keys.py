@@ -23,14 +23,6 @@ parser.add_argument('-s', '--scope', dest='scope', action='store', type=int, def
 parser.add_argument('-t', '--timeout', dest='timeout', action='store', type=float, default=0.1,
                     help='''Maximum timeout for each fetching operation/Interest lifetime (default: 0.1s)''')
 
-args = parser.parse_args()
-if not args.namespace:
-    print parser.print_help ()
-    exit (1)
-
-ccn = pyccn.CCN ()
-
-keys = {}
 
 class bcolors:
     HEADER = '\033[95m'
@@ -48,7 +40,8 @@ class bcolors:
         self.FAIL = ''
         self.ENDC = ''
 
-def enumRecurs (name):
+def enumRecurs (name, ccn):
+    keys = {}
     import sys
     sys.stdout.write('.')
     sys.stdout.flush()
@@ -96,7 +89,9 @@ def enumRecurs (name):
             higherName = slurp.name[base_len]
             # print higherName
             newName = pyccn.Name (interestName).append (higherName)
-            enumRecurs (newName)
+            enumResult = enumRecurs (newName, ccn)
+            if len(enumResult) > 0:
+              keys.update(enumResult)
 
             if len(slurp.name) == (base_len+1) and len (slurp.name) > 3:
                 # print slurp.name[base_len-2]
@@ -112,11 +107,7 @@ def enumRecurs (name):
                             keys[str(keyname)] = [version, False, pyccn.Name.seg2num (version)]
                     except:
                         keys[str(keyname)] = [version, False, pyccn.Name.seg2num (version)]
-
-print "Enumerating all the keys (may take a couple of minutes)"
-enumRecurs (pyccn.Name (args.namespace))
-
-verified = { }
+    return keys
 
 def authorizeKey (dataName, keyName):
     if len(keyName) < 1:
@@ -132,7 +123,7 @@ def authorizeKey (dataName, keyName):
     else:
         return { "authorized":False, "formattedName":"%s[WRONG KEY] %s%s%s" % (bcolors.FAIL, keyBase, bcolors.ENDC, str(pyccn.Name ().append (dataName[len(keyName)]))) }
 
-def verify(name, spaces):
+def verify(name, spaces, ccn):
     class Slurp(pyccn.Closure):
         def __init__(self):
             self.finished = False
@@ -172,7 +163,7 @@ def verify(name, spaces):
             if not auth["authorized"]:
                 return False
 
-            return verify(keyLocator.keyName, "%s    " % spaces)
+            return verify(keyLocator.keyName, "%s    " % spaces, ccn)
         else:
             if str(slurp.co.name) == NDN_root:
                 print "%s|" % spaces
@@ -190,18 +181,29 @@ def verify(name, spaces):
         print "%s Key locator missing"
 
 
-if args.verify:
-    print "\nVerifying keys from [%s%s%s] namespace:" % (bcolors.OKBLUE, args.namespace, bcolors.ENDC)
-else:
-    print "\nAvailable keys in [%s%s%s] namespace:" % (bcolors.OKBLUE, args.namespace, bcolors.ENDC)
+if __name__ == '__main__':
 
-for key in sorted (keys.keys ()):
-    # keyname = pyccn.Name (key).append (keys[key][0])
-    keyname = pyccn.Name (key)
-    print keyname
+  args = parser.parse_args()
+  if not args.namespace:
+      print parser.print_help ()
+      exit (1)
 
-    if args.verify:
-        verified = verify (keyname, "    ")
-        print "    %s" % (bcolors.OKGREEN +"OK"+bcolors.ENDC if verified else bcolors.FAIL + "FAIL" + bcolors.ENDC)
-        print ""
+  ccn = pyccn.CCN ()
+  print "Enumerating all the keys (may take a couple of minutes)"
+  keys = enumRecurs (pyccn.Name (args.namespace), ccn)
+
+  if args.verify:
+      print "\nVerifying keys from [%s%s%s] namespace:" % (bcolors.OKBLUE, args.namespace, bcolors.ENDC)
+  else:
+      print "\nAvailable keys in [%s%s%s] namespace:" % (bcolors.OKBLUE, args.namespace, bcolors.ENDC)
+
+  for key in sorted (keys.keys ()):
+      # keyname = pyccn.Name (key).append (keys[key][0])
+      keyname = pyccn.Name (key)
+      print keyname
+
+      if args.verify:
+          verified = verify (keyname, "    ", ccn)
+          print "    %s" % (bcolors.OKGREEN +"OK"+bcolors.ENDC if verified else bcolors.FAIL + "FAIL" + bcolors.ENDC)
+          print ""
 
