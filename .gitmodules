@@ -1,6 +1,0 @@
-[submodule "mkey"]
-	path = mkey
-	url = git://github.com/zhenkai/mkey.git
-[submodule "pem"]
-	path = pem
-	url = git://github.com/zhenkai/pem.git
