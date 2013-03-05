@@ -1,0 +1,10 @@
+
+# Full official name of the site
+AFFI="Put official name of the site here"
+
+# Signature validity
+VALID_DAYS=365
+
+# Prefix for the site's keys, e.g., /ndn/keys/ucla.edu
+KEY_PREFIX="put-a-valid-key-prefix-here"
+

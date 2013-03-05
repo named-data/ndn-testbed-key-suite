@@ -1,20 +1,41 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 D=`dirname "$0"`
 
+if [ -f "$D/site-config.sh" ]; then
+    source "$D/site-config.sh"
+else
+    echo "Please configure your site's parameters in [site-config.sh]"
+    exit 1
+fi
+
+if [ "x$AFFI" == "x" ]; then
+    echo "AFFI variable is not configured in [site-config.sh]"
+    exit 1
+fi
+
+if [ "x$VALID_DAYS" == "x" ]; then
+    echo "VALID_DAYS variable is not configured in [site-config.sh]"
+    exit 1
+fi
+
+if [ "x$KEY_PREFIX" == "x" ]; then
+    echo "KEY_PREFIX variable is not configured in [site-config.sh]"
+    exit 1
+fi
+
+SIGNING_KEY_NAME=${SIGNING_KEY_NAME:-"/ndn/keys/ucla.edu"}
+
+
 MKEY=$D/bin/ndn-publish-key.sh
 KEYSTORE=$D/site-keystore/
-AFFI=${AFFI:-"University of California, Los Angeles"}
-VALID_DAYS=365
-SIGNING_KEY_NAME=${SIGNING_KEY_NAME:-"/ndn/keys/ucla.edu"}
-KEY_PREFIX=${KEY_PREFIX:-"/ndn/keys/ucla.edu"}
 CERTS=$D/certs
 
 SYNC_TOPO_PREFIX="/ndn/broadcast/sync/keys"
 SYNC_NAME_PREFIX="/ndn/keys"
 
 function usage {
-            cat <<EOF
+    cat <<EOF
 Usage:
   $0 [-h] (-s | -S)
       Sign user public keys
@@ -23,7 +44,7 @@ Usage:
       -S sign and publish user public keys (*.pem) located in ${CERTS} folder
       -s create sync slice and exit
 EOF
-            exit 1
+    exit 1
 }
 
 while getopts "hsS" flag; do
@@ -39,7 +60,6 @@ while getopts "hsS" flag; do
 	    pubkeys=`ls certs/*.pem`
 	    cat <<EOF
 Affiliation: $AFFI
-Prefix of the signing key: $SIGNING_KEY_NAME
 Prefix under which user keys will be published: $KEY_PREFIX
 
 The following public keys will be signed: $pubkeys
@@ -68,7 +88,7 @@ EOF
                                 if [ "x$real_identity" == "x" ]; then
                                     echo "ERROR: you must specify real world identity for the signed key"
                                 else
-			            $MKEY -i "$real_identity" -a "$AFFI" -f "$cert" -F "$KEYSTORE" -P "$SIGNING_KEY_NAME" -p "$keyname" -x "$VALID_DAYS" && echo "Signed $USER"
+			            $MKEY -i "$real_identity" -a "$AFFI" -f "$cert" -F "$KEYSTORE" -P "$KEY_PREFIX" -p "$keyname" -x "$VALID_DAYS" && echo "Signed $USER"
                                     break
                                 fi
                             done
@@ -77,17 +97,17 @@ EOF
 
 			;;
 		    [Nn][oO] )
-			exit 1
-			;;
+		    exit 1
+		    ;;
 		    * )
-			echo "Please answer yes or no."
-			;;
+		    echo "Please answer yes or no."
+		    ;;
 		esac
 	    done
 	    ;;
         *)
-	    usage
-	    ;;
+	usage
+	;;
     esac
 done
 
