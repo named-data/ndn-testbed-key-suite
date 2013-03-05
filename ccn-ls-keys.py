@@ -10,6 +10,21 @@ except:
 
 NDN_root = "/ndn/keys/%C1.M.K%00%A7%D9%8B%81%DE%13%FCV%C5%A6%92%B4D%93nVp%9DRop%ED9%EF%B5%E2%03%29%A5S%3Eh/%FD%01%00P%81%BB%3D/%00"
 
+
+
+import argparse
+
+parser = argparse.ArgumentParser(description='Browse and verify correctness of published keys')
+parser.add_argument('namespace', metavar='NDN-prefix', type=str, nargs='?',
+                    help='Key namespace or key name (e.g., /ndn/keys)')
+parser.add_argument('-n', '--no-verify', dest='verify', action='store_false', default=True,
+                    help='''Disable key verification (only enumerate)''')
+
+args = parser.parse_args()
+if not args.namespace:
+    print parser.print_help ()
+    exit (1)
+
 ccn = pyccn.CCN ()
 
 keys = {}
@@ -95,13 +110,26 @@ def enumRecurs (name):
                     except:
                         keys[str(keyname)] = [version, False, pyccn.Name.seg2num (version)]
 
-
 print "Enumerating all the keys (may take a couple of minutes)"
-enumRecurs (pyccn.Name ("/ndn/keys"))
+enumRecurs (pyccn.Name (args.namespace))
 
 verified = { }
 
 print "\nTrying to verify keys"
+
+def authorizeKey (dataName, keyName):
+    if len(keyName) < 1:
+        return { "authorized":False, "formattedName":"%s%s: %s%s" % (bcolors.FAIL,"Invalid key name", str(keyName), bcolors.ENDC)}
+
+    if len(dataName) <= len(keyName)-1:
+        return { "authorized":False, "formattedName":"%s%s: %s%s" % (bcolors.FAIL,"Invalid key name", str(keyName), bcolors.ENDC)}
+
+    keyBase = str(keyName[0:len(keyName)-1])
+    dataBase = str(dataName[0:len(keyName)-1])
+    if keyBase == dataBase:
+        return { "authorized":True, "formattedName":"%s[AUTH KEY]%s %s%s%s%s" % (bcolors.OKBLUE, bcolors.ENDC, bcolors.OKGREEN, keyBase, bcolors.ENDC, str(pyccn.Name ().append (dataName[len(keyName)]))) }
+    else:
+        return { "authorized":False, "formattedName":"%s[WRONG KEY] %s%s%s" % (bcolors.FAIL, keyBase, bcolors.ENDC, str(pyccn.Name ().append (dataName[len(keyName)]))) }
 
 def verify(name, spaces):
     class Slurp(pyccn.Closure):
@@ -137,8 +165,11 @@ def verify(name, spaces):
     keyLocator = slurp.co.signedInfo.keyLocator
     if keyLocator:
         if keyLocator.keyName:
+            auth = authorizeKey (slurp.co.name, keyLocator.keyName)
             print "%s|" % spaces
-            print "%s+-> %s" % (spaces, keyLocator.keyName)
+            print "%s+-> %s" % (spaces, auth["formattedName"])
+            if not auth["authorized"]:
+                return False
 
             return verify(keyLocator.keyName, "%s    " % spaces)
         else:
@@ -155,7 +186,8 @@ def verify(name, spaces):
 
 
 for key in sorted (keys.keys ()):
-    keyname = pyccn.Name (key).append (keys[key][0])
+    # keyname = pyccn.Name (key).append (keys[key][0])
+    keyname = pyccn.Name (key)
     print keyname
     verified = verify (keyname, "    ")
     print "    %s" % ("OK" if verified else bcolors.FAIL + "FAIL" + bcolors.ENDC)
