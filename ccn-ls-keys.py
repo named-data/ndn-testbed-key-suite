@@ -8,17 +8,20 @@ except:
     print "   You can download and install it from here https://github.com/named-data/PyCCN"
     print "   If you're using OSX and macports, you can follow instructions http://irl.cs.ucla.edu/autoconf/client.html"
 
-NDN_root = "/ndn/keys/%C1.M.K%00%A7%D9%8B%81%DE%13%FCV%C5%A6%92%B4D%93nVp%9DRop%ED9%EF%B5%E2%03%29%A5S%3Eh/%FD%01%00P%81%BB%3D/%00"
-
-
+NDN_rootKeySha256 = "\xA7\xD9\x8B\x81\xDE\x13\xFCV\xC5\xA6\x92\xB4D\x93nVp\x9DRop\xED9\xEF\xB5\xE2\x03\x29\xA5S\x3Eh"
+NDN_root = str(pyccn.Name ("/ndn/keys/").append ("\xC1.M.K\x00" + NDN_rootKeySha256).append ("\xFD\x01\x00P\x81\xBB\x3D").append("\x00"))
 
 import argparse
 
 parser = argparse.ArgumentParser(description='Browse and verify correctness of published keys')
 parser.add_argument('namespace', metavar='NDN-prefix', type=str, nargs='?',
-                    help='Key namespace or key name (e.g., /ndn/keys)')
+                    help='''Key namespace or key name (e.g., /ndn/keys)''')
 parser.add_argument('-n', '--no-verify', dest='verify', action='store_false', default=True,
                     help='''Disable key verification (only enumerate)''')
+parser.add_argument('-s', '--scope', dest='scope', action='store', type=int, default=None,
+                    help='''Set scope for enumeration and verification (default no scope)''')
+parser.add_argument('-t', '--timeout', dest='timeout', action='store', type=float, default=0.1,
+                    help='''Maximum timeout for each fetching operation/Interest lifetime (default: 0.1s)''')
 
 args = parser.parse_args()
 if not args.namespace:
@@ -57,7 +60,7 @@ def enumRecurs (name):
         exclude1 = pyccn.ExclusionFilter ()
         # print "Exclude list: [%s]" % ",".join ([str(pyccn.Name().append (n)) for n in excludeList])
         exclude1.add_names ([pyccn.Name().append (n) for n in excludeList])
-        interest_tmpl = pyccn.Interest (exclude = exclude1, interestLifetime=0.1, minSuffixComponents=1, maxSuffixComponents=100, scope=None)
+        interest_tmpl = pyccn.Interest (exclude = exclude1, interestLifetime=args.timeout, minSuffixComponents=1, maxSuffixComponents=100, scope=args.scope)
 
         if True:
             class Slurp(pyccn.Closure):
@@ -115,8 +118,6 @@ enumRecurs (pyccn.Name (args.namespace))
 
 verified = { }
 
-print "\nTrying to verify keys"
-
 def authorizeKey (dataName, keyName):
     if len(keyName) < 1:
         return { "authorized":False, "formattedName":"%s%s: %s%s" % (bcolors.FAIL,"Invalid key name", str(keyName), bcolors.ENDC)}
@@ -149,7 +150,7 @@ def verify(name, spaces):
             return pyccn.RESULT_OK
 
     slurp = Slurp ()
-    ccn.expressInterest (name, slurp, pyccn.Interest (interestLifetime=0.1, childSelector=1, minSuffixComponents=1, maxSuffixComponents=20, scope=None))
+    ccn.expressInterest (name, slurp, pyccn.Interest (interestLifetime=args.timeout, childSelector=1, minSuffixComponents=1, maxSuffixComponents=20, scope=args.scope))
 
     maxwait = 500
     while not slurp.finished and maxwait > 0:
@@ -175,21 +176,32 @@ def verify(name, spaces):
         else:
             if str(slurp.co.name) == NDN_root:
                 print "%s|" % spaces
-                print "%s--> self-signed NDN root" % spaces
-                return True
+                if slurp.co.signedInfo.publisherPublicKeyDigest == NDN_rootKeySha256:
+                    print "%s--> %sself-signed NDN root%s" % (spaces, bcolors.OKGREEN, bcolors.ENDC)
+                    return True
+                else:
+                    print "%s    %s!!! fake NDN root key !!!%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
+                    return False
             else:
                 print "%s|" % spaces
-                print "%s--> self-signed" % spaces
+                print "%s--> %sinvalid self-signed trust anchor%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
                 return False
     else:
         print "%s Key locator missing"
 
 
+if args.verify:
+    print "\nVerifying keys from [%s%s%s] namespace:" % (bcolors.OKBLUE, args.namespace, bcolors.ENDC)
+else:
+    print "\nAvailable keys in [%s%s%s] namespace:" % (bcolors.OKBLUE, args.namespace, bcolors.ENDC)
+
 for key in sorted (keys.keys ()):
     # keyname = pyccn.Name (key).append (keys[key][0])
     keyname = pyccn.Name (key)
     print keyname
-    verified = verify (keyname, "    ")
-    print "    %s" % ("OK" if verified else bcolors.FAIL + "FAIL" + bcolors.ENDC)
-    print ""
+
+    if args.verify:
+        verified = verify (keyname, "    ")
+        print "    %s" % (bcolors.OKGREEN +"OK"+bcolors.ENDC if verified else bcolors.FAIL + "FAIL" + bcolors.ENDC)
+        print ""
 
