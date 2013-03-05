@@ -2,7 +2,7 @@
 
 D=`dirname "$0"`
 
-MKEY=$D/mkey/ccn-publish-key.sh
+MKEY=$D/bin/ndn-publish-key.sh
 KEYSTORE=$D/site-keystore/
 AFFI=${AFFI:-"University of California, Los Angeles"}
 VALID_DAYS=365
