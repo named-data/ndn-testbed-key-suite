@@ -13,8 +13,6 @@ NDN_rootKeySha256 = "\xA7\xD9\x8B\x81\xDE\x13\xFCV\xC5\xA6\x92\xB4D\x93nVp\x9DRo
 NDN_root = str(pyccn.Name ("/ndn/keys/").append ("\xC1.M.K\x00" + NDN_rootKeySha256).append ("\xFD\x01\x00P\x81\xBB\x3D").append("\x00"))
 
 import argparse
-import xml.etree.ElementTree as ET
-import time
 
 parser = argparse.ArgumentParser(description='Browse and verify correctness of published keys')
 parser.add_argument('namespace', metavar='NDN-prefix', type=str, nargs='?',
@@ -128,7 +126,9 @@ def authorizeKey (dataName, keyName):
     else:
         return { "authorized":False, "formattedName":"%s[WRONG KEY] %s%s%s" % (bcolors.FAIL, keyBase, bcolors.ENDC, str(pyccn.Name ().append (dataName[len(keyName)]))) }
 
-def key_expired(name, timestamp, key_digest):
+def key_expired(name, timestamp, key_digest, spaces):
+    import xml.etree.ElementTree as ET
+    import time
 
     class KeyInfoClosure(pyccn.Closure):
         def __init__(self):
@@ -170,9 +170,12 @@ def key_expired(name, timestamp, key_digest):
             valid_to = valid_to_temp if (valid_to < 0 or valid_to > valid_to_temp) else valid_to
 
         now = time.time()
+
         if now < valid_to:
+            print "%s%s    [VALID META]%s ValidTo: %s%s%s" % (spaces, bcolors.OKBLUE, bcolors.ENDC, bcolors.OKGREEN, time.ctime(valid_to), bcolors.ENDC)
             return False
         else:
+            print "%s%s    [FAIL META]%s ValidTo: %s%s%s" % (spaces, bcolors.FAIL, bcolors.ENDC, bcolors.FAIL, time.ctime(valid_to), bcolors.ENDC)
             return True
 
 def verify(name, spaces, ccn):
@@ -206,6 +209,16 @@ def verify(name, spaces, ccn):
         # done at this point
         return False
 
+    if args.check_meta:
+        timestamp = slurp.co.signedInfo.timeStamp
+        name = slurp.co.name
+        key_digest = slurp.co.signedInfo.publisherPublicKeyDigest
+
+        if key_expired(name, timestamp, key_digest, spaces[4:]):
+            print "%s%sKey expired or meta info not correct%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
+            print "%s%sKeyName: %s%s" % (spaces, bcolors.FAIL, name, bcolors.ENDC)
+            return False
+
     keyLocator = slurp.co.signedInfo.keyLocator
     if keyLocator:
         if keyLocator.keyName:
@@ -215,25 +228,7 @@ def verify(name, spaces, ccn):
             if not auth["authorized"]:
                 return False
 
-            key_verified = verify(keyLocator.keyName, "%s    " % spaces, ccn)
-
-            if args.check_meta:
-              if key_verified:
-                  timestamp = slurp.co.signedInfo.timeStamp
-                  name = slurp.co.name
-                  key_digest = slurp.co.signedInfo.publisherPublicKeyDigest
-                  # by now the key speficied in keyLocator is trustworthy
-                  if key_expired(name, timestamp, key_digest):
-                    print "%s%sKey expired or meta info not correct%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
-                    print "%s%sKeyName: %s%s" % (spaces, bcolors.FAIL, name, bcolors.ENDC)
-                    return False
-                  else:
-                    return True
-              else:
-                  return False
-            else:
-              return key_verified
-
+            return verify(keyLocator.keyName, "%s    " % spaces, ccn)
         else:
             if str(slurp.co.name) == NDN_root:
                 print "%s|" % spaces
