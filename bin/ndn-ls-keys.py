@@ -17,258 +17,39 @@ import argparse
 parser = argparse.ArgumentParser(description='Browse and verify correctness of published keys')
 parser.add_argument('namespace', metavar='NDN-prefix', type=str, nargs='?',
                     help='''Key namespace or key name (e.g., /ndn/keys)''')
+parser.add_argument('-q', '--quiet', dest='verbose', action='store_false', default=True,
+                    help='''Quiet mode (verify keys without printing out certification chains)''')
 parser.add_argument('-n', '--no-verify', dest='verify', action='store_false', default=True,
                     help='''Disable key verification (only enumerate)''')
 parser.add_argument('-s', '--scope', dest='scope', action='store', type=int, default=None,
                     help='''Set scope for enumeration and verification (default no scope)''')
 parser.add_argument('-t', '--timeout', dest='timeout', action='store', type=float, default=0.1,
                     help='''Maximum timeout for each fetching operation/Interest lifetime (default: 0.1s)''')
-parser.add_argument('-m', '--meta', dest='check_meta', action='store_true', default=False,
-                    help='''Whether to check meta data in info''')
+parser.add_argument('-M', '--no-meta', dest='check_meta', action='store_false', default=True,
+                    help='''Disable checking meta data (e.g., certificate expiration)''')
 
-
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-
-    def disable(self):
-        self.HEADER = ''
-        self.OKBLUE = ''
-        self.OKGREEN = ''
-        self.WARNING = ''
-        self.FAIL = ''
-        self.ENDC = ''
-
-def enumRecurs (name, ccn):
-    keys = {}
-    import sys
-    sys.stdout.write('.')
-    sys.stdout.flush()
-    # print ">> %s" % name
-    base_len = len (name)
-    excludeList = []
-    while True:
-        interestName = pyccn.Name (name)
-        exclude1 = pyccn.ExclusionFilter ()
-        # print "Exclude list: [%s]" % ",".join ([str(pyccn.Name().append (n)) for n in excludeList])
-        exclude1.add_names ([pyccn.Name().append (n) for n in excludeList])
-        interest_tmpl = pyccn.Interest (exclude = exclude1, interestLifetime=args.timeout, minSuffixComponents=1, maxSuffixComponents=100, scope=args.scope)
-
-        if True:
-            class Slurp(pyccn.Closure):
-                def __init__(self):
-                    self.finished = False
-                    self.done = False
-
-                def upcall(self, kind, upcallInfo):
-                    if kind == pyccn.UPCALL_CONTENT or kind == pyccn.UPCALL_CONTENT_UNVERIFIED:
-                        co = upcallInfo.ContentObject
-                        self.name = co.name
-                        # print co.name
-                        if len (co.name) == base_len:
-                            self.done = True
-                        else:
-                            excludeList.append (co.name[base_len])
-                    elif kind == pyccn.UPCALL_INTEREST_TIMED_OUT:
-                        self.done = True
-
-                    self.finished = True
-                    return pyccn.RESULT_OK
-
-            slurp = Slurp ()
-            ccn.expressInterest(interestName, slurp, interest_tmpl)
-            while not slurp.finished:
-                # print slurp.finished
-                ccn.run (1)
-
-            if slurp.done:
-                break
-
-            # recursive step
-            higherName = slurp.name[base_len]
-            # print higherName
-            newName = pyccn.Name (interestName).append (higherName)
-            enumResult = enumRecurs (newName, ccn)
-            if len(enumResult) > 0:
-              keys.update(enumResult)
-
-            if len(slurp.name) == (base_len+1) and len (slurp.name) > 3:
-                # print slurp.name[base_len-2]
-                if slurp.name [base_len-2][0:5] == '\xc1.M.K' and slurp.name [base_len-3] != "info":
-                    keyname = slurp.name[0:(base_len-1)]
-                    version = slurp.name[base_len-1]
-                    # if not keys[str(keyname)] or keys[str(keyname)] < version:
-                    #     keys[str(keyname)] = version
-                    try:
-                        # print "%s, %d" % (version, pyccn.Name.seg2num (version))
-
-                        if keys[str(keyname)][2] <= pyccn.Name.seg2num (version):
-                            keys[str(keyname)] = [version, False, pyccn.Name.seg2num (version)]
-                    except:
-                        keys[str(keyname)] = [version, False, pyccn.Name.seg2num (version)]
-    return keys
-
-def authorizeKey (dataName, keyName):
-    if len(keyName) < 1:
-        return { "authorized":False, "formattedName":"%s%s: %s%s" % (bcolors.FAIL,"Invalid key name", str(keyName), bcolors.ENDC)}
-
-    if len(dataName) <= len(keyName)-1:
-        return { "authorized":False, "formattedName":"%s%s: %s%s" % (bcolors.FAIL,"Invalid key name", str(keyName), bcolors.ENDC)}
-
-    keyBase = str(keyName[0:len(keyName)-1])
-    dataBase = str(dataName[0:len(keyName)-1])
-    if keyBase == dataBase:
-        return { "authorized":True, "formattedName":"%s[AUTH KEY]%s %s%s%s%s" % (bcolors.OKBLUE, bcolors.ENDC, bcolors.OKGREEN, keyBase, bcolors.ENDC, str(pyccn.Name ().append (dataName[len(keyName)]))) }
-    else:
-        return { "authorized":False, "formattedName":"%s[WRONG KEY] %s%s%s" % (bcolors.FAIL, keyBase, bcolors.ENDC, str(pyccn.Name ().append (dataName[len(keyName)]))) }
-
-def key_expired(name, timestamp, key_digest, spaces):
-    import xml.etree.ElementTree as ET
-    import time
-
-    class KeyInfoClosure(pyccn.Closure):
-        def __init__(self):
-            self.co = None
-
-        def upcall(self, kind, upcallInfo):
-            if kind == pyccn.UPCALL_CONTENT_UNVERIFIED:
-                return pyccn.RESULT_VERIFY
-
-            if kind == pyccn.UPCALL_CONTENT:
-                self.co = upcallInfo.ContentObject
-
-            return pyccn.RESULT_OK
-
-    closure = KeyInfoClosure()
-    # discard rep version and segment
-    comps = str(name).split('/')[:-2]
-    comps.insert(-1, 'info')
-    info_name = pyccn.Name('/'.join(comps))
-    ccn.expressInterest (info_name, closure, pyccn.Interest (interestLifetime=args.timeout, childSelector=1, minSuffixComponents=1, maxSuffixComponents=20, scope=args.scope))
-    maxwait = 500
-    while closure.co is None and maxwait > 0:
-        # print slurp.finished
-        ccn.run (1)
-        maxwait = maxwait - 1
-
-    if closure.co is None:
-        return True
-
-    elif closure.co.signedInfo.publisherPublicKeyDigest != key_digest:
-        return True
-
-    else:
-        root = ET.fromstring(closure.co.content)
-        valid_to = -1
-
-        for v in root.findall('Valid_to'):
-            valid_to_temp = int(v.text)
-            valid_to = valid_to_temp if (valid_to < 0 or valid_to > valid_to_temp) else valid_to
-
-        now = time.time()
-
-        if now < valid_to:
-            print "%s%s    [VALID META]%s ValidTo: %s%s%s" % (spaces, bcolors.OKBLUE, bcolors.ENDC, bcolors.OKGREEN, time.ctime(valid_to), bcolors.ENDC)
-            return False
-        else:
-            print "%s%s    [FAIL META]%s ValidTo: %s%s%s" % (spaces, bcolors.FAIL, bcolors.ENDC, bcolors.FAIL, time.ctime(valid_to), bcolors.ENDC)
-            return True
-
-def verify(name, spaces, ccn):
-    class Slurp(pyccn.Closure):
-        def __init__(self):
-            self.finished = False
-            self.verified = False
-
-        def upcall(self, kind, upcallInfo):
-            if kind == pyccn.UPCALL_CONTENT_UNVERIFIED:
-                return pyccn.RESULT_VERIFY
-
-            if kind == pyccn.UPCALL_CONTENT:
-                self.verified = True
-                self.co = upcallInfo.ContentObject
-
-            self.finished = True
-            return pyccn.RESULT_OK
-
-    slurp = Slurp ()
-    ccn.expressInterest (name, slurp, pyccn.Interest (interestLifetime=args.timeout, childSelector=1, minSuffixComponents=1, maxSuffixComponents=20, scope=args.scope))
-
-    maxwait = 500
-    while not slurp.finished and maxwait > 0:
-        # print slurp.finished
-        ccn.run (1)
-        maxwait = maxwait - 1
-
-    if not slurp.verified:
-        print "%s%sCannot verify ContentObject%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
-        # done at this point
-        return False
-
-    if args.check_meta:
-        timestamp = slurp.co.signedInfo.timeStamp
-        name = slurp.co.name
-        key_digest = slurp.co.signedInfo.publisherPublicKeyDigest
-
-        if key_expired(name, timestamp, key_digest, spaces[4:]):
-            print "%s%sKey expired or meta info not correct%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
-            print "%s%sKeyName: %s%s" % (spaces, bcolors.FAIL, name, bcolors.ENDC)
-            return False
-
-    keyLocator = slurp.co.signedInfo.keyLocator
-    if keyLocator:
-        if keyLocator.keyName:
-            auth = authorizeKey (slurp.co.name, keyLocator.keyName)
-            print "%s|" % spaces
-            print "%s+-> %s" % (spaces, auth["formattedName"])
-            if not auth["authorized"]:
-                return False
-
-            return verify(keyLocator.keyName, "%s    " % spaces, ccn)
-        else:
-            if str(slurp.co.name) == NDN_root:
-                print "%s|" % spaces
-                if slurp.co.signedInfo.publisherPublicKeyDigest == NDN_rootKeySha256:
-                    print "%s--> %sself-signed NDN root%s" % (spaces, bcolors.OKGREEN, bcolors.ENDC)
-                    return True
-                else:
-                    print "%s    %s!!! fake NDN root key !!!%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
-                    return False
-            else:
-                print "%s|" % spaces
-                print "%s--> %sinvalid self-signed trust anchor%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
-                return False
-    else:
-        print "%s Key locator missing"
-
+from ndn_keys import verify
 
 if __name__ == '__main__':
+    args = parser.parse_args()
+    if not args.namespace:
+        parser.print_help ()
+        exit (1)
 
-  args = parser.parse_args()
-  if not args.namespace:
-      print parser.print_help ()
-      exit (1)
+    kv = verify.key_verifier (args)
 
-  ccn = pyccn.CCN ()
-  print "Enumerating all the keys (may take a couple of minutes)"
-  keys = enumRecurs (pyccn.Name (args.namespace), ccn)
+    print "Enumerating all the keys (may take a couple of minutes)"
+    keys = kv.enumerateKeysFromNamespace (pyccn.Name (args.namespace))
 
-  if args.verify:
-      print "\nVerifying keys from [%s%s%s] namespace:" % (bcolors.OKBLUE, args.namespace, bcolors.ENDC)
-  else:
-      print "\nAvailable keys in [%s%s%s] namespace:" % (bcolors.OKBLUE, args.namespace, bcolors.ENDC)
+    if args.verify:
+        print "\nVerifying keys from [%s%s%s] namespace:" % (verify.bcolors.OKBLUE, args.namespace, verify.bcolors.ENDC)
+    else:
+        print "\nAvailable keys in [%s%s%s] namespace:" % (verify.bcolors.OKBLUE, args.namespace, verify.bcolors.ENDC)
 
-  for key in sorted (keys.keys ()):
-      # keyname = pyccn.Name (key).append (keys[key][0])
-      keyname = pyccn.Name (key)
-      print keyname
+    for keyname in sorted (keys):
+        print keyname
 
-      if args.verify:
-          verified = verify (keyname, "    ", ccn)
-          print "    %s" % (bcolors.OKGREEN +"OK"+bcolors.ENDC if verified else bcolors.FAIL + "FAIL" + bcolors.ENDC)
-          print ""
-
+        if args.verify:
+            verified = kv.verify (keyname)
+            print "    %s" % (verify.bcolors.OKGREEN +"OK"+verify.bcolors.ENDC if verified else verify.bcolors.FAIL + "FAIL" + verify.bcolors.ENDC)
+            print ""
