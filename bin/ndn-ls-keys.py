@@ -7,11 +7,14 @@ except:
     print "ERROR: PyCCN is not found"
     print "   You can download and install it from here https://github.com/named-data/PyCCN"
     print "   If you're using OSX and macports, you can follow instructions http://irl.cs.ucla.edu/autoconf/client.html"
+    exit(1)
 
 NDN_rootKeySha256 = "\xA7\xD9\x8B\x81\xDE\x13\xFCV\xC5\xA6\x92\xB4D\x93nVp\x9DRop\xED9\xEF\xB5\xE2\x03\x29\xA5S\x3Eh"
 NDN_root = str(pyccn.Name ("/ndn/keys/").append ("\xC1.M.K\x00" + NDN_rootKeySha256).append ("\xFD\x01\x00P\x81\xBB\x3D").append("\x00"))
 
 import argparse
+import xml.etree.ElementTree as ET
+import time
 
 parser = argparse.ArgumentParser(description='Browse and verify correctness of published keys')
 parser.add_argument('namespace', metavar='NDN-prefix', type=str, nargs='?',
@@ -22,6 +25,8 @@ parser.add_argument('-s', '--scope', dest='scope', action='store', type=int, def
                     help='''Set scope for enumeration and verification (default no scope)''')
 parser.add_argument('-t', '--timeout', dest='timeout', action='store', type=float, default=0.1,
                     help='''Maximum timeout for each fetching operation/Interest lifetime (default: 0.1s)''')
+parser.add_argument('-m', '--meta', dest='check_meta', action='store_true', default=False,
+                    help='''Whether to check meta data in info''')
 
 
 class bcolors:
@@ -123,6 +128,53 @@ def authorizeKey (dataName, keyName):
     else:
         return { "authorized":False, "formattedName":"%s[WRONG KEY] %s%s%s" % (bcolors.FAIL, keyBase, bcolors.ENDC, str(pyccn.Name ().append (dataName[len(keyName)]))) }
 
+def key_expired(name, timestamp, key_digest):
+
+    class KeyInfoClosure(pyccn.Closure):
+        def __init__(self):
+            self.co = None
+
+        def upcall(self, kind, upcallInfo):
+            if kind == pyccn.UPCALL_CONTENT_UNVERIFIED:
+                return pyccn.RESULT_VERIFY
+
+            if kind == pyccn.UPCALL_CONTENT:
+                self.co = upcallInfo.ContentObject
+
+            return pyccn.RESULT_OK
+
+    closure = KeyInfoClosure()
+    # discard rep version and segment
+    comps = str(name).split('/')[:-2]
+    comps.insert(-1, 'info')
+    info_name = pyccn.Name('/'.join(comps))
+    ccn.expressInterest (info_name, closure, pyccn.Interest (interestLifetime=args.timeout, childSelector=1, minSuffixComponents=1, maxSuffixComponents=20, scope=args.scope))
+    maxwait = 500
+    while closure.co is None and maxwait > 0:
+        # print slurp.finished
+        ccn.run (1)
+        maxwait = maxwait - 1
+
+    if closure.co is None:
+        return True
+
+    elif closure.co.signedInfo.publisherPublicKeyDigest != key_digest:
+        return True
+
+    else:
+        root = ET.fromstring(closure.co.content)
+        valid_to = -1
+
+        for v in root.findall('Valid_to'):
+            valid_to_temp = int(v.text)
+            valid_to = valid_to_temp if (valid_to < 0 or valid_to > valid_to_temp) else valid_to
+
+        now = time.time()
+        if now < valid_to:
+            return False
+        else:
+            return True
+
 def verify(name, spaces, ccn):
     class Slurp(pyccn.Closure):
         def __init__(self):
@@ -163,7 +215,25 @@ def verify(name, spaces, ccn):
             if not auth["authorized"]:
                 return False
 
-            return verify(keyLocator.keyName, "%s    " % spaces, ccn)
+            key_verified = verify(keyLocator.keyName, "%s    " % spaces, ccn)
+
+            if args.check_meta:
+              if key_verified:
+                  timestamp = slurp.co.signedInfo.timeStamp
+                  name = slurp.co.name
+                  key_digest = slurp.co.signedInfo.publisherPublicKeyDigest
+                  # by now the key speficied in keyLocator is trustworthy
+                  if key_expired(name, timestamp, key_digest):
+                    print "%s%sKey expired or meta info not correct%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
+                    print "%s%sKeyName: %s%s" % (spaces, bcolors.FAIL, name, bcolors.ENDC)
+                    return False
+                  else:
+                    return True
+              else:
+                  return False
+            else:
+              return key_verified
+
         else:
             if str(slurp.co.name) == NDN_root:
                 print "%s|" % spaces
