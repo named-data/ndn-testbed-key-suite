@@ -20,7 +20,7 @@ function usage {
 Usage:
     $0 [-h] -i identity -a affiliation -f key_file \\
         -p prefix-of-published-key -F path-to-signing-key-direcotry \\
-        -P prefix-of-signing-key -x validity_period
+        -P prefix-of-signing-key -x validity_period -o pub_cert
 
 	-h print this help message
 	-i specify the real-world identity of the key owner
@@ -32,6 +32,7 @@ Usage:
            Keystore password can be defined through CCNX_KEYSTORE_PASSWORD environment variable
 	-P specify the name prefix of signing public key (or "self" for self-signed key)
 	-x specify the validity period in days
+  -o specify the pub_cert file for the key owner (without suffix); default replacing key_file's suffix with ".pubcert"
 
         The script performs the following operations:
 	  - reads public key <key_file>,
@@ -39,12 +40,13 @@ Usage:
           - signs it with key <path-to-signing-key-direcotry>/.ccnx_keystore
           - puts KeyLocator: <prefix-of-signing-key>/%C1.M.K<sha256(signing-key-bits)>
           - publishes content object to local repo
+    - writes a pub_cert file for the key owner that contains the key and info objects
 EOF
 
   exit 1
 }
 
-while getopts "hi:a:f:p:F:P:x:" flag; do
+while getopts "hi:a:f:p:F:P:x:o:" flag; do
     case "$flag" in
 	i) IDENTITY=$OPTARG ;;
 	a) AFFILIATION=$OPTARG ;;
@@ -54,6 +56,7 @@ while getopts "hi:a:f:p:F:P:x:" flag; do
 	F) SIGNKEY=$OPTARG ;;
         P) SIGNKEYURI=$OPTARG ;;
 	x) FRESHNESS=$OPTARG ;;
+  o) PUB_KEY=$OPTARG ;;
 
 	h | ?)
 	    usage
@@ -76,6 +79,14 @@ fi
 if [ ! -d "$SIGNKEY" ]; then
     echo "-F should specify directory where .ccnx_keystore file is located" >&2
     exit 1
+fi
+
+if [ -z $PUB_CERT ]; then
+    DIR_NAME=$(dirname $KEYFILE)
+    BASE_NAME=$(basename $KEYFILE .pem)
+    PUB_CERT="$DIR_NAME/$BASE_NAME"".pubcert"
+else
+    PUB_CERT="$PUB_CERT"".pubcert"
 fi
 
 pubkey_base64=`$OPENSSL x509 -in "$KEYFILE" -pubkey -noout | $OPENSSL rsa -pubin -pubout -inform PEM -outform DER 2> /dev/null | $BASE64`
@@ -114,7 +125,22 @@ function repo_write {
 TIME=`date -u +%s`
 VERSION=`printf "%.10x" $TIME | $XXD -r -p | $HEXDUMP -v -e '1/1 "^%02x"' | $SED -e 's/\^/\%/g'`
 
-repo_write "$PREFIX/%C1.M.K%00$pubkey_binhash/%FD%01$VERSION" "$pubkey_base64"
-repo_write "$PREFIX/info/%C1.M.K%00$pubkey_binhash/%FD%01$VERSION" "$info_base64"
+KEY_URL=$PREFIX/%C1.M.K%00$pubkey_binhash/%FD%01$VERSION
+INFO_URL=$PREFIX/info/%C1.M.K%00$pubkey_binhash/%FD%01$VERSION
+repo_write "$KEY_URL" "$pubkey_base64"
+repo_write "$INFO_URL" "$info_base64"
+
+echo > $PUB_CERT # just in case
+ccnpeek "$KEY_URL" >> $PUB_CERT
+RES1=$?
+ccnpeek "$INFO_URL" >> $PUB_CERT
+RES2=$?
+
+if [ $RES1 -ne 0 ] || [ $RES2 -ne 0 ]; then
+    echo "ERROR: Publishing failed. Fetching key and info ended up with exit code $RES1 and $RES2 respectively" >$2
+    exit 1
+fi
+
+echo "ATTENTION: Send $PUB_CERT to the user with instructions."
 
 exit 0
