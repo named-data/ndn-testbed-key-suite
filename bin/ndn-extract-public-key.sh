@@ -15,18 +15,18 @@ EOF
 
 while getopts "hDi:o:" flag; do
     case "$flag" in
-	i)
-	    INPUT=$OPTARG
-	    ;;
-	o)
-	    OUTPUT=$OPTARG
-	    ;;
-	D)
-	    INPUT="$HOME/.ccnx/.ccnx_keystore"
-	    ;;
-	*)
-	    usage
-	    ;;
+        i)
+            INPUT=$OPTARG
+            ;;
+        o)
+            OUTPUT=$OPTARG
+            ;;
+        D)
+            INPUT="$HOME/.ccnx/.ccnx_keystore"
+            ;;
+        *)
+            usage
+            ;;
     esac
 done
 

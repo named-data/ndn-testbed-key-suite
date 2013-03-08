@@ -6,7 +6,7 @@ You need to be able to send interests with '/ndn/keys' prefix to your neighbors 
 
 This can be done by adding routes in your ccnd.conf to all neigbors, e.g.
 
-	add /ndn/keys udp 10.0.XX.XX
+        add /ndn/keys udp 10.0.XX.XX
         add /ndn/keys udp 10.0.YY.YY
         ...
         add /ndn/keys udp 10.0.ZZ.ZZ
@@ -17,7 +17,7 @@ Also, /ndn/keys needs to be added to ``CCND_AUTOREG`` variable to automatically 
 
 Decide which directory you want the repo to store its file,
 
-	CCNR_DIRECTORY=/directory/to/store/repo/ ccnr &
+        CCNR_DIRECTORY=/directory/to/store/repo/ ccnr &
 
 ## Key publishing
 
@@ -33,7 +33,7 @@ Decide which directory you want the repo to store its file,
 
 For example, you can use
 
-	ccninitkeystore ./site-keystore
+        ccninitkeystore ./site-keystore
 
 to generate a new private/public key pair and put it in `site-keystore/.ccnx_keystore`
 
@@ -45,7 +45,7 @@ If you would like to change default password, you can set and export `CCNX_KEYST
 
 For example, you can issue the following command:
 
-	bin/ndn-extract-public-key.sh -i site-keystore/.ccnx_keystore -o my-site.pem
+        bin/ndn-extract-public-key.sh -i site-keystore/.ccnx_keystore -o my-site.pem
 
 And then email my-site.pem file to NDN root key operator (<root-key-admin@named-data.net>).
 
@@ -57,13 +57,13 @@ Name of the file will define which prefix will be used to publish a key. For exa
 
 Before you will be able to publish signed scripts to NDN testbed, you will need to create a sync slice (you do not need to do this more than once per instance of repo).  You can use the following command:
 
-	./sign.sh -s
+        ./sign.sh -s
 
 Any time later, you can start signing user certificates.  You do not need to sign all public key at once, and the recommendation is actually to sign and publish the key as soon as user send it to you.
 
 After you put `.pem` file into certs/ folder, run the following command, which will prompt for exact name for the key (default will be sufficient in most cases) and will require you to type real world identity for the key (in case of users it should be full official name of the user):
 
-	./sign.sh -S
+        ./sign.sh -S
 
 After you done signing, you can move the signed .pem file into signed-certs/ folder, so the next time you run the script will not ask you to re-sign them.
 

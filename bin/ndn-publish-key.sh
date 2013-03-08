@@ -22,25 +22,25 @@ Usage:
         -p prefix-of-published-key -F path-to-signing-key-direcotry \\
         -P prefix-of-signing-key -x validity_period -o pub_cert
 
-	-h print this help message
-	-i specify the real-world identity of the key owner
-	-a specify the affiliation of the key owner
-	-f specify the public key file
-	-p specify the key name prefix
+        -h print this help message
+        -i specify the real-world identity of the key owner
+        -a specify the affiliation of the key owner
+        -f specify the public key file
+        -p specify the key name prefix
 
-	-F specify the path to the keystore (directory that contains .ccnx_keystore file).
+        -F specify the path to the keystore (directory that contains .ccnx_keystore file).
            Keystore password can be defined through CCNX_KEYSTORE_PASSWORD environment variable
-	-P specify the name prefix of signing public key (or "self" for self-signed key)
-	-x specify the validity period in days
-  -o specify the pub_cert file for the key owner (without suffix); default replacing key_file's suffix with ".pubcert"
+        -P specify the name prefix of signing public key (or "self" for self-signed key)
+        -x specify the validity period in days
+        -o specify the pub_cert file for the key owner (without suffix); default replacing key_file's suffix with ".pubcert"
 
         The script performs the following operations:
-	  - reads public key <key_file>,
+          - reads public key <key_file>,
           - creates content object with name <prefix-of-published-key>/%C1.M.K<sha256(key-bits)>/<version>/<segment>
           - signs it with key <path-to-signing-key-direcotry>/.ccnx_keystore
           - puts KeyLocator: <prefix-of-signing-key>/%C1.M.K<sha256(signing-key-bits)>
           - publishes content object to local repo
-    - writes a pub_cert file for the key owner that contains the key and info objects
+          - writes a pub_cert file for the key owner that contains the key and info objects
 EOF
 
   exit 1
@@ -48,19 +48,19 @@ EOF
 
 while getopts "hi:a:f:p:F:P:x:o:" flag; do
     case "$flag" in
-	i) IDENTITY=$OPTARG ;;
-	a) AFFILIATION=$OPTARG ;;
-	f) KEYFILE=$OPTARG ;;
-	p) PREFIX=$OPTARG ;;
+        i) IDENTITY=$OPTARG ;;
+        a) AFFILIATION=$OPTARG ;;
+        f) KEYFILE=$OPTARG ;;
+        p) PREFIX=$OPTARG ;;
 
-	F) SIGNKEY=$OPTARG ;;
+        F) SIGNKEY=$OPTARG ;;
         P) SIGNKEYURI=$OPTARG ;;
-	x) FRESHNESS=$OPTARG ;;
-  o) PUB_KEY=$OPTARG ;;
+        x) FRESHNESS=$OPTARG ;;
+        o) PUB_KEY=$OPTARG ;;
 
-	h | ?)
-	    usage
-	    ;;
+        h | ?)
+            usage
+            ;;
     esac
 done
 
