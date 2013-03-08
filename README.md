@@ -47,7 +47,7 @@ For example, you can issue the following command:
 
 	bin/ndn-extract-public-key.sh -i site-keystore/.ccnx_keystore -o my-site.pem
 
-And then email my-site.pem file to NDN root key operator (<root-key-admin@named-data.net>)
+And then email my-site.pem file to NDN root key operator (<root-key-admin@named-data.net>).
 
 ### 4. Put collected user public keys (`*.pem` files) in `certs/` folder
 
@@ -55,13 +55,21 @@ Name of the file will define which prefix will be used to publish a key. For exa
 
 ### 5. Run signing script
 
-Should be run *only once*.  Create a sync slice:
+Before you will be able to publish signed scripts to NDN testbed, you will need to create a sync slice (you do not need to do this more than once per instance of repo).  You can use the following command:
 
 	./sign.sh -s
 
-Sign keys in certs/ folder:
+Any time later, you can start signing user certificates.  You do not need to sign all public key at once, and the recommendation is actually to sign and publish the key as soon as user send it to you.
+
+After you put `.pem` file into certs/ folder, run the following command, which will prompt for exact name for the key (default will be sufficient in most cases) and will require you to type real world identity for the key (in case of users it should be full official name of the user):
 
 	./sign.sh -S
+
+After you done signing, you can move the signed .pem file into signed-certs/ folder, so the next time you run the script will not ask you to re-sign them.
+
+### 6. Return signed key to the user
+
+After you successfully run the signing script, it will create a .pubcert file containing the signed public key and associated meta information in ccnb format.  Please return this file to the user, so he(she) can start using it.
 
 ## Verify that publishing and sync succeeded
 
