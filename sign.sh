@@ -30,6 +30,7 @@ SIGNING_KEY_NAME=${SIGNING_KEY_NAME:-"/ndn/keys/ucla.edu"}
 MKEY=$D/bin/ndn-publish-key.sh
 KEYSTORE=$D/site-keystore/
 CERTS=$D/certs
+SIGNED_CERTS=$D/signed-certs
 
 SYNC_TOPO_PREFIX="/ndn/broadcast/sync/keys"
 SYNC_NAME_PREFIX="/ndn/keys"
@@ -89,6 +90,7 @@ EOF
                                     echo "ERROR: you must specify real world identity for the signed key"
                                 else
 			            $MKEY -i "$real_identity" -a "$AFFI" -f "$cert" -F "$KEYSTORE" -P "$KEY_PREFIX" -p "$keyname" -x "$VALID_DAYS" && echo "Signed $USER"
+                                    mv "$cert" "${SIGNED_CERTS}/"
                                     break
                                 fi
                             done

@@ -27,6 +27,7 @@ SIGNING_KEY_NAME=${SIGNING_KEY_NAME:-"/ndn/keys/ucla.edu"}
 MKEY=$D/bin/ndn-publish-key.sh
 KEYSTORE=$D/site-keystore/
 CERTS=$D/certs
+REVOKED_CERTS=$D/revoked-certs
 
 SYNC_TOPO_PREFIX="/ndn/broadcast/sync/keys"
 SYNC_NAME_PREFIX="/ndn/keys"
@@ -78,6 +79,7 @@ EOF
                                     echo "ERROR: you must specify revocation reason"
                                 else
 			            $MKEY -i "REVOKED: $real_identity" -a "$AFFI" -f "$cert" -F "$KEYSTORE" -P "$KEY_PREFIX" -p "$keyname" -x "$VALID_DAYS" && echo "Revoked $USER"
+                                    mv "$cert" "${REVOKED_CERTS}/"
                                     break
                                 fi
                             done
