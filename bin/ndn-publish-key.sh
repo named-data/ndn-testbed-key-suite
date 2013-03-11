@@ -130,8 +130,7 @@ INFO_URL=$PREFIX/info/%C1.M.K%00$pubkey_binhash/%FD%01$VERSION
 repo_write "$KEY_URL" "$pubkey_base64"
 repo_write "$INFO_URL" "$info_base64"
 
-echo > $PUB_CERT # just in case
-ccnpeek "$KEY_URL" >> $PUB_CERT
+ccnpeek "$KEY_URL" > $PUB_CERT
 RES1=$?
 ccnpeek "$INFO_URL" >> $PUB_CERT
 RES2=$?
