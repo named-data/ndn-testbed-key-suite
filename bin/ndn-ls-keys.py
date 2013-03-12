@@ -46,10 +46,10 @@ if __name__ == '__main__':
     else:
         print "\nAvailable keys in [%s%s%s] namespace:" % (verify.bcolors.OKBLUE, args.namespace, verify.bcolors.ENDC)
 
-    for keyname in sorted (keys):
+    for keyname in sorted ([str(key) for key in keys]):
         print keyname
 
         if args.verify:
-            verified = kv.verify (keyname)
+            verified = kv.verify (pyccn.Name (keyname))
             print "    %s" % (verify.bcolors.OKGREEN +"OK"+verify.bcolors.ENDC if verified else verify.bcolors.FAIL + "FAIL" + verify.bcolors.ENDC)
             print ""
