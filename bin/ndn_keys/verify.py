@@ -202,6 +202,11 @@ class key_verifier:
         while not closure.finished:
             self.ccn.run (1)
 
+        if closure.co == None:
+            if self.args.verbose:
+                print "%s%s    [FAIL META] No META info for the key%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
+            return None
+            
         if closure.co.signedInfo.publisherPublicKeyDigest != key_digest:
             if self.args.verbose:
                 print "%s%s    [FAIL META] PublisherPublicKeyDigest is invalid%s" % (spaces, bcolors.FAIL, bcolors.ENDC)

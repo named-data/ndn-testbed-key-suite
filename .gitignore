@@ -1,2 +1,3 @@
 site-config.sh
 *.pyc
+certs/*.pubcert
