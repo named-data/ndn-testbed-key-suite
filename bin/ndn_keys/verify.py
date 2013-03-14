@@ -245,7 +245,13 @@ class key_verifier:
             key_digest = latestVersion.signedInfo.publisherPublicKeyDigest
 
             meta = self.getMetaInfo (latestVersion.name, key_digest, spaces[4:])
-            if not self.isValidMeta (meta, timestamp, spaces[4:]):
+            try:
+                if not self.isValidMeta (meta, timestamp, spaces[4:]):
+                    return None
+            except:
+                if self.args.verbose:
+                    print "%s    %s!!! corrupt or missing META data !!!%s" % (spaces, bcolors.FAIL, bcolors.ENDC)
+                # i.e., corrupt meta
                 return None
 
         keyLocator = latestVersion.signedInfo.keyLocator
