@@ -135,8 +135,8 @@ RES1=$?
 ccnpeek "$INFO_URL" >> $PUB_CERT
 RES2=$?
 
-if [ $RES1 -ne 0 ] || [ $RES2 -ne 0 ]; then
-    echo "ERROR: Publishing failed. Fetching key and info ended up with exit code $RES1 and $RES2 respectively" >$2
+if [ $RES1 -ne 0 -o $RES2 -ne 0 ]; then
+    echo "ERROR: Publishing failed. Fetching key and info ended up with exit code $RES1 and $RES2 respectively"
     exit 1
 fi
 

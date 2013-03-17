@@ -58,7 +58,7 @@ while getopts "hsS" flag; do
             exit 0
             ;;
 	S)
-	    pubkeys=`ls "$CERTS/*.pem"`
+	    pubkeys=`ls $CERTS/*.pem`
 	    cat <<EOF
 Affiliation: $AFFI
 Prefix under which user keys will be published: $KEY_PREFIX
